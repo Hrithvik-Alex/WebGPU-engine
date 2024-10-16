@@ -1,6 +1,8 @@
+use log::{debug, error, info};
 use winit::{
+    dpi::PhysicalPosition,
     event::*,
-    event_loop::{ControlFlow, EventLoop},
+    event_loop::EventLoop,
     keyboard::{KeyCode, PhysicalKey},
     window::WindowBuilder,
 };
@@ -14,6 +16,7 @@ struct State<'a> {
     config: wgpu::SurfaceConfiguration,
     size: winit::dpi::PhysicalSize<u32>,
     window: &'a Window,
+    position: PhysicalPosition<f64>,
 }
 
 impl<'a> State<'a> {
@@ -82,6 +85,7 @@ impl<'a> State<'a> {
             queue,
             config,
             size,
+            position: PhysicalPosition { x: 0.0, y: 0.0 },
         }
     }
     fn window(&self) -> &Window {
@@ -94,6 +98,12 @@ impl<'a> State<'a> {
             self.config.height = new_size.height;
             self.surface.configure(&self.device, &self.config);
         }
+    }
+
+    fn set_position(&mut self, position: PhysicalPosition<f64>) {
+        debug!("{position:?}");
+        debug!("{:?}", (self.size));
+        self.position = position
     }
 
     fn input(&mut self, event: &WindowEvent) -> bool {
@@ -121,8 +131,8 @@ impl<'a> State<'a> {
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 0.1,
-                            g: 0.2,
+                            r: self.position.x / f64::from(self.size.width),
+                            g: self.position.y / f64::from(self.size.height),
                             b: 0.7,
                             a: 1.0,
                         }),
@@ -212,6 +222,11 @@ pub async fn run() {
                             Err(e) => eprintln!("{:?}", e),
                         }
                     }
+
+                    WindowEvent::CursorMoved {
+                        device_id: _,
+                        position,
+                    } => state.set_position(*position),
 
                     _ => {}
                 }
