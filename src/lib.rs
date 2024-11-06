@@ -1,7 +1,10 @@
 mod camera;
 mod context;
 mod model;
+mod sprite;
 mod texture;
+
+use std::sync::Arc;
 
 use model::Vertex;
 
@@ -17,32 +20,6 @@ use winit::{
 
 use winit::window::Window;
 
-const VERTICES: &[model::ModelVertex] = &[
-    // Changed
-    model::ModelVertex {
-        position: [-0.5, 0.5, 0.0],
-        tex_coords: [0.0, 0.0],
-        normal: [0.0, 0.0, 0.0],
-    }, // A
-    model::ModelVertex {
-        position: [0.5, 0.5, 0.0],
-        tex_coords: [1.0, 14],
-        normal: [0.0, 0.0, 0.0],
-    }, // B
-    model::ModelVertex {
-        position: [-0.5, -0.5, 0.0],
-        tex_coords: [0.28081453, 0.949397],
-        normal: [0.0, 0.0, 0.0],
-    }, // C
-    model::ModelVertex {
-        position: [0.5, -0.5, 0.0],
-        tex_coords: [0.85967, 0.84732914],
-        normal: [0.0, 0.0, 0.0],
-    }, // D
-];
-
-const INDICES: &[u16] = &[0, 3, 2, 0, 2, 1];
-
 struct State<'a> {
     context: context::Context<'a>,
     size: winit::dpi::PhysicalSize<u32>,
@@ -52,8 +29,8 @@ struct State<'a> {
     vertex_buffer: wgpu::Buffer,
     index_buffer: wgpu::Buffer,
     num_indices: u32,
-    diffuse_bind_group: wgpu::BindGroup,
-    diffuse_texture: texture::Texture,
+    sprite_sheet: Arc<sprite::SpriteSheet>,
+    sprite: sprite::Sprite<'a>,
     camera: camera::Camera,
     projection: camera::Projection,
     camera_bind_group: wgpu::BindGroup,
@@ -64,15 +41,6 @@ impl<'a> State<'a> {
     async fn new(window: &'a Window) -> State<'a> {
         let size = window.inner_size();
         let context = context::Context::new(window).await;
-
-        let diffuse_bytes = include_bytes!("../assets/happy-tree.png");
-        let diffuse_texture = texture::Texture::from_bytes(
-            &context.device,
-            &context.queue,
-            diffuse_bytes,
-            "happy-tree.png",
-        )
-        .unwrap();
 
         let texture_bind_group_layout =
             context
@@ -101,23 +69,14 @@ impl<'a> State<'a> {
                     label: Some("texture_bind_group_layout"),
                 });
 
-        let diffuse_bind_group = context
-            .device
-            .create_bind_group(&wgpu::BindGroupDescriptor {
-                layout: &texture_bind_group_layout,
-                entries: &[
-                    wgpu::BindGroupEntry {
-                        binding: 0,
-                        resource: wgpu::BindingResource::TextureView(&diffuse_texture.view),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 1,
-                        resource: wgpu::BindingResource::Sampler(&diffuse_texture.sampler),
-                    },
-                ],
-                label: Some("diffuse_bind_group"),
-            });
-
+        let sprite_sheet = Arc::new(sprite::SpriteSheet::new(
+            &context,
+            &texture_bind_group_layout,
+            "../assets/warrior_spritesheet_calciumtrice.png".to_string(),
+            16,
+            16,
+        ));
+        let sprite = sprite::Sprite::new(&sprite_sheet);
         let camera = camera::Camera::new(cgmath::Vector3::new(0.0, 0.0, 0.0));
         let camera_buffer = camera.get_buffer(&context.device);
 
@@ -248,7 +207,7 @@ impl<'a> State<'a> {
             .device
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("Vertex Buffer"),
-                contents: bytemuck::cast_slice(VERTICES),
+                contents: bytemuck::cast_slice(sprite.vertices()),
                 usage: wgpu::BufferUsages::VERTEX,
             });
 
@@ -256,11 +215,11 @@ impl<'a> State<'a> {
             .device
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("Index Buffer"),
-                contents: bytemuck::cast_slice(INDICES),
+                contents: bytemuck::cast_slice(sprite.indices()),
                 usage: wgpu::BufferUsages::INDEX,
             });
 
-        let num_indices = INDICES.len() as u32;
+        let num_indices = sprite.indices().len() as u32;
 
         Self {
             window,
@@ -271,8 +230,8 @@ impl<'a> State<'a> {
             vertex_buffer,
             index_buffer,
             num_indices,
-            diffuse_bind_group,
-            diffuse_texture,
+            sprite_sheet,
+            sprite,
             camera,
             projection,
             camera_bind_group,
@@ -338,7 +297,7 @@ impl<'a> State<'a> {
             });
 
             render_pass.set_pipeline(&self.render_pipeline);
-            render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]);
+            render_pass.set_bind_group(0, self.sprite.bind_group(), &[]);
             render_pass.set_bind_group(1, &self.camera_bind_group, &[]);
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
             render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16); // 1.
