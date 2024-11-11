@@ -5,27 +5,23 @@ use crate::model;
 use crate::texture;
 
 use image::GenericImageView;
-pub struct Sprite<'a> {
-    sprite_sheet: &'a SpriteSheet,
+pub struct Sprite {
+    sprite_sheet: Arc<SpriteSheet>,
     vertices: [model::ModelVertex; 4],
     indices: [u16; 6],
 }
 
-impl<'a> Sprite<'a> {
-    pub fn new(sprite_sheet: &'a Arc<SpriteSheet>) -> Self {
+impl Sprite {
+    pub fn new(sprite_sheet: &Arc<SpriteSheet>) -> Self {
         let vertices: [model::ModelVertex; 4] = [
             // Changed
             model::ModelVertex {
-                position: [0.0, sprite_sheet.sprite_height as f32, 0.0],
+                position: [100.0, 200.0, 1.0],
                 tex_coords: [0.0, 0.0],
                 normal: [0.0, 0.0, 0.0],
             }, // A
             model::ModelVertex {
-                position: [
-                    sprite_sheet.sprite_width as f32,
-                    sprite_sheet.sprite_height as f32,
-                    0.0,
-                ],
+                position: [200.0, 200.0, 1.0],
                 tex_coords: [
                     (sprite_sheet.sprite_width / sprite_sheet.dimensions.0) as f32,
                     0.0,
@@ -33,7 +29,7 @@ impl<'a> Sprite<'a> {
                 normal: [0.0, 0.0, 0.0],
             }, // B
             model::ModelVertex {
-                position: [0.0, 0.0, 0.0],
+                position: [100.0, 100.0, 1.0],
                 tex_coords: [
                     0.0,
                     sprite_sheet.sprite_height as f32 / sprite_sheet.dimensions.1 as f32,
@@ -41,18 +37,18 @@ impl<'a> Sprite<'a> {
                 normal: [0.0, 0.0, 0.0],
             }, // C
             model::ModelVertex {
-                position: [sprite_sheet.sprite_width as f32, 0.0, 0.0],
+                position: [200.0, 100.0, 1.0],
                 tex_coords: [
-                    sprite_sheet.sprite_width as f32 / sprite_sheet.dimensions.0 as f32,
+                    (sprite_sheet.sprite_width as f32) / sprite_sheet.dimensions.0 as f32,
                     sprite_sheet.sprite_height as f32 / sprite_sheet.dimensions.1 as f32,
                 ],
                 normal: [0.0, 0.0, 0.0],
             }, // D
         ];
 
-        let indices: [u16; 6] = [0, 3, 2, 0, 2, 1];
+        let indices: [u16; 6] = [0, 2, 3, 0, 3, 1];
         Self {
-            sprite_sheet,
+            sprite_sheet: sprite_sheet.clone(),
             vertices,
             indices,
         }

@@ -10,18 +10,18 @@ struct VertexOutput {
 };
 
 struct CameraUniform {
-    view: mat4x4<f32>,
+    view_proj: mat4x4<f32>,
 };
 
-struct ProjectionUniform {
-    proj: mat4x4<f32>,
-};
+// struct ProjectionUniform {
+//     proj: mat4x4<f32>,
+// };
 
 @group(1) @binding(0) // 1.
 var<uniform> camera: CameraUniform;
 
-@group(1) @binding(1) // 2.
-var<uniform> projection: ProjectionUniform;
+// @group(1) @binding(1) // 2.
+// var<uniform> projection: ProjectionUniform;
 
 @vertex
 fn vs_main(
@@ -29,7 +29,7 @@ fn vs_main(
 ) -> VertexOutput {
     var out: VertexOutput;
     out.tex_coords = model.tex_coords;
-    out.clip_position =  projection.proj * camera.view * vec4<f32>(model.position, 1.0);
+    out.clip_position =  camera.view_proj * /*camera.view *  */vec4<f32>(model.position, 1.0);
     return out;
 }
 
@@ -40,6 +40,7 @@ var s_diffuse: sampler;
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
+    // return vec4<f32>(1.0, 0.0, 0.0, 1.0);
     return textureSample(t_diffuse, s_diffuse, in.tex_coords);
 }
  

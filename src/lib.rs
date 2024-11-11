@@ -30,9 +30,10 @@ struct State<'a> {
     index_buffer: wgpu::Buffer,
     num_indices: u32,
     sprite_sheet: Arc<sprite::SpriteSheet>,
-    sprite: sprite::Sprite<'a>,
-    camera: camera::Camera,
-    projection: camera::Projection,
+    sprite: sprite::Sprite,
+    camera: camera::OrthographicCamera,
+    // camera: camera::Camera,
+    // projection: camera::Projection,
     camera_bind_group: wgpu::BindGroup,
 }
 
@@ -69,21 +70,35 @@ impl<'a> State<'a> {
                     label: Some("texture_bind_group_layout"),
                 });
 
+        // println!("Current directory: {:?}", std::env::current_dir().unwrap());
         let sprite_sheet = Arc::new(sprite::SpriteSheet::new(
             &context,
             &texture_bind_group_layout,
-            "../assets/warrior_spritesheet_calciumtrice.png".to_string(),
-            16,
-            16,
+            "./assets/warrior_spritesheet_calciumtrice.png".to_string(),
+            32,
+            32,
         ));
         let sprite = sprite::Sprite::new(&sprite_sheet);
-        let camera = camera::Camera::new(cgmath::Vector3::new(0.0, 0.0, 0.0));
+        // let camera = camera::Camera::new(cgmath::Vector3::new(0.0, 0.0, 5.0));
+        // let camera_buffer = camera.get_buffer(&context.device);
+
+        // let projection =
+        //     camera::Projection::new(size.width, size.height, cgmath::Deg(45.0), 0.1, 100.0, true);
+        // debug!("proj:{:?}", (projection.calc_matrix()));
+        // debug!("bruh:{:?}", size);
+
+        // let projection_buffer = projection.get_buffer(&context.device);
+
+        let camera = camera::OrthographicCamera::new(
+            size.width,
+            size.height,
+            0.1,
+            100.0,
+            cgmath::Vector3::new(size.width as f32 / 2.0, size.height as f32 / 2.0, 1.0),
+        );
+
         let camera_buffer = camera.get_buffer(&context.device);
 
-        let projection =
-            camera::Projection::new(size.width, size.height, cgmath::Deg(45.0), 0.1, 100.0, true);
-
-        let projection_buffer = projection.get_buffer(&context.device);
         let camera_bind_group_layout =
             context
                 .device
@@ -100,16 +115,16 @@ impl<'a> State<'a> {
                             },
                             count: None,
                         },
-                        wgpu::BindGroupLayoutEntry {
-                            binding: 1,
-                            visibility: wgpu::ShaderStages::VERTEX,
-                            ty: wgpu::BindingType::Buffer {
-                                ty: wgpu::BufferBindingType::Uniform,
-                                has_dynamic_offset: false,
-                                min_binding_size: None,
-                            },
-                            count: None,
-                        },
+                        // wgpu::BindGroupLayoutEntry {
+                        //     binding: 1,
+                        //     visibility: wgpu::ShaderStages::VERTEX,
+                        //     ty: wgpu::BindingType::Buffer {
+                        //         ty: wgpu::BufferBindingType::Uniform,
+                        //         has_dynamic_offset: false,
+                        //         min_binding_size: None,
+                        //     },
+                        //     count: None,
+                        // },
                     ],
                 });
 
@@ -124,12 +139,12 @@ impl<'a> State<'a> {
                             camera_buffer.as_entire_buffer_binding(),
                         ),
                     },
-                    wgpu::BindGroupEntry {
-                        binding: 1,
-                        resource: wgpu::BindingResource::Buffer(
-                            projection_buffer.as_entire_buffer_binding(),
-                        ),
-                    },
+                    // wgpu::BindGroupEntry {
+                    //     binding: 1,
+                    //     resource: wgpu::BindingResource::Buffer(
+                    //         projection_buffer.as_entire_buffer_binding(),
+                    //     ),
+                    // },
                 ],
                 label: Some("camera bind group"),
             });
@@ -203,6 +218,8 @@ impl<'a> State<'a> {
 
         let render_pipeline = create_render_pipeline("Render Pipeline", "vs_main", "fs_main");
 
+        debug!("{:?}", (bytemuck::cast_slice::<_, f32>(sprite.vertices())));
+        debug!("{:?}", (bytemuck::cast_slice::<_, u16>(sprite.indices())));
         let vertex_buffer = context
             .device
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -233,7 +250,7 @@ impl<'a> State<'a> {
             sprite_sheet,
             sprite,
             camera,
-            projection,
+            // projection,
             camera_bind_group,
         }
     }
@@ -248,13 +265,11 @@ impl<'a> State<'a> {
             self.context
                 .surface
                 .configure(&self.context.device, &self.context.config);
-            self.projection.resize(new_size.width, new_size.height);
+            self.camera.resize(new_size.width, new_size.height);
         }
     }
 
     fn set_position(&mut self, position: PhysicalPosition<f64>) {
-        debug!("{position:?}");
-        debug!("{:?}", (self.size));
         self.position = position
     }
     fn input(&mut self, event: &WindowEvent) -> bool {
