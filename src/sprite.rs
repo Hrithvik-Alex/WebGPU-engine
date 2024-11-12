@@ -5,6 +5,7 @@ use crate::model;
 use crate::texture;
 
 use image::GenericImageView;
+use image::ImageBuffer;
 pub struct Sprite {
     sprite_sheet: Arc<SpriteSheet>,
     vertices: [model::ModelVertex; 4],
@@ -16,14 +17,14 @@ impl Sprite {
         let vertices: [model::ModelVertex; 4] = [
             // Changed
             model::ModelVertex {
-                position: [100.0, 200.0, 1.0],
+                position: [100.0, 900.0, 1.0],
                 tex_coords: [0.0, 0.0],
                 normal: [0.0, 0.0, 0.0],
             }, // A
             model::ModelVertex {
-                position: [200.0, 200.0, 1.0],
+                position: [900.0, 900.0, 1.0],
                 tex_coords: [
-                    (sprite_sheet.sprite_width / sprite_sheet.dimensions.0) as f32,
+                    sprite_sheet.sprite_width as f32 / sprite_sheet.dimensions.0 as f32,
                     0.0,
                 ],
                 normal: [0.0, 0.0, 0.0],
@@ -37,7 +38,7 @@ impl Sprite {
                 normal: [0.0, 0.0, 0.0],
             }, // C
             model::ModelVertex {
-                position: [200.0, 100.0, 1.0],
+                position: [900.0, 100.0, 1.0],
                 tex_coords: [
                     (sprite_sheet.sprite_width as f32) / sprite_sheet.dimensions.0 as f32,
                     sprite_sheet.sprite_height as f32 / sprite_sheet.dimensions.1 as f32,
@@ -86,6 +87,7 @@ impl SpriteSheet {
         image_path: String,
         sprite_width: u32,
         sprite_height: u32,
+        manual_premultiply: bool,
     ) -> Self {
         let bytes = std::fs::read(image_path.clone()).expect("Failed to read sprite sheet image");
         let texture = crate::texture::Texture::from_bytes(
@@ -93,6 +95,7 @@ impl SpriteSheet {
             &context.queue,
             &bytes,
             &image_path,
+            manual_premultiply,
         )
         .unwrap();
         let dimensions = texture.dimensions;

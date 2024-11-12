@@ -77,6 +77,7 @@ impl<'a> State<'a> {
             "./assets/warrior_spritesheet_calciumtrice.png".to_string(),
             32,
             32,
+            true,
         ));
         let sprite = sprite::Sprite::new(&sprite_sheet);
         // let camera = camera::Camera::new(cgmath::Vector3::new(0.0, 0.0, 5.0));
@@ -187,7 +188,7 @@ impl<'a> State<'a> {
                         targets: &[Some(wgpu::ColorTargetState {
                             // 4.
                             format: context.config.format,
-                            blend: Some(wgpu::BlendState::REPLACE),
+                            blend: Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING),
                             write_mask: wgpu::ColorWrites::ALL,
                         })],
                         compilation_options: wgpu::PipelineCompilationOptions::default(),
