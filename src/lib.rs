@@ -6,6 +6,7 @@ mod texture;
 
 use std::sync::Arc;
 
+use cgmath::SquareMatrix;
 use model::Vertex;
 
 use log::debug;
@@ -20,6 +21,46 @@ use winit::{
 
 use winit::window::Window;
 
+#[repr(C)]
+// This is so we can store this in a buffer
+#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct WorldUniform {
+    mat: [[f32; 4]; 4],
+}
+
+impl WorldUniform {
+    const WORLD_SCREEN_WIDTH: u32 = 640;
+    const WORLD_SCREEN_HEIGHT: u32 = 360;
+
+    pub fn new() -> Self {
+        Self {
+            mat: cgmath::Matrix4::identity().into(),
+        }
+    }
+
+    fn calc(&self, width: u32, height: u32) -> cgmath::Matrix4<f32> {
+        #[cfg_attr(rustfmt, rustfmt_skip)]
+         cgmath::Matrix4::new(
+            width as f32/Self::WORLD_SCREEN_WIDTH as f32, 0., 0., 0.,
+            0., height as f32/Self::WORLD_SCREEN_HEIGHT as f32, 0., 0.,
+            0., 0., 1., 0.,
+            0., 0., 0., 1.,
+        )
+    }
+
+    pub fn resize(&mut self, width: u32, height: u32) {
+        self.mat = self.calc(width, height).into();
+    }
+
+    pub fn get_buffer(&self, device: &wgpu::Device) -> wgpu::Buffer {
+        device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("ortho buffer"),
+            contents: bytemuck::cast_slice(&[self.mat]),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        })
+    }
+}
+
 struct State<'a> {
     context: context::Context<'a>,
     size: winit::dpi::PhysicalSize<u32>,
@@ -32,9 +73,10 @@ struct State<'a> {
     sprite_sheet: Arc<sprite::SpriteSheet>,
     sprite: sprite::Sprite,
     camera: camera::OrthographicCamera,
+    world_uniform: WorldUniform,
     // camera: camera::Camera,
     // projection: camera::Projection,
-    camera_bind_group: wgpu::BindGroup,
+    uniform_bind_group: wgpu::BindGroup,
 }
 
 impl<'a> State<'a> {
@@ -86,7 +128,7 @@ impl<'a> State<'a> {
         // let projection =
         //     camera::Projection::new(size.width, size.height, cgmath::Deg(45.0), 0.1, 100.0, true);
         // debug!("proj:{:?}", (projection.calc_matrix()));
-        // debug!("bruh:{:?}", size);
+        debug!("bruh:{:?}", size);
 
         // let projection_buffer = projection.get_buffer(&context.device);
 
@@ -99,8 +141,11 @@ impl<'a> State<'a> {
         );
 
         let camera_buffer = camera.get_buffer(&context.device);
+        let mut world_uniform = WorldUniform::new();
+        world_uniform.resize(size.width, size.height);
+        let world_buffer = world_uniform.get_buffer(&context.device);
 
-        let camera_bind_group_layout =
+        let uniform_bind_group_layout =
             context
                 .device
                 .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -116,23 +161,23 @@ impl<'a> State<'a> {
                             },
                             count: None,
                         },
-                        // wgpu::BindGroupLayoutEntry {
-                        //     binding: 1,
-                        //     visibility: wgpu::ShaderStages::VERTEX,
-                        //     ty: wgpu::BindingType::Buffer {
-                        //         ty: wgpu::BufferBindingType::Uniform,
-                        //         has_dynamic_offset: false,
-                        //         min_binding_size: None,
-                        //     },
-                        //     count: None,
-                        // },
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 1,
+                            visibility: wgpu::ShaderStages::VERTEX,
+                            ty: wgpu::BindingType::Buffer {
+                                ty: wgpu::BufferBindingType::Uniform,
+                                has_dynamic_offset: false,
+                                min_binding_size: None,
+                            },
+                            count: None,
+                        },
                     ],
                 });
 
-        let camera_bind_group = context
+        let uniform_bind_group = context
             .device
             .create_bind_group(&wgpu::BindGroupDescriptor {
-                layout: &camera_bind_group_layout,
+                layout: &uniform_bind_group_layout,
                 entries: &[
                     wgpu::BindGroupEntry {
                         binding: 0,
@@ -140,12 +185,12 @@ impl<'a> State<'a> {
                             camera_buffer.as_entire_buffer_binding(),
                         ),
                     },
-                    // wgpu::BindGroupEntry {
-                    //     binding: 1,
-                    //     resource: wgpu::BindingResource::Buffer(
-                    //         projection_buffer.as_entire_buffer_binding(),
-                    //     ),
-                    // },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: wgpu::BindingResource::Buffer(
+                            world_buffer.as_entire_buffer_binding(),
+                        ),
+                    },
                 ],
                 label: Some("camera bind group"),
             });
@@ -163,7 +208,7 @@ impl<'a> State<'a> {
                 .device
                 .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                     label: Some("Render Pipeline Layout"),
-                    bind_group_layouts: &[&texture_bind_group_layout, &camera_bind_group_layout],
+                    bind_group_layouts: &[&texture_bind_group_layout, &uniform_bind_group_layout],
                     push_constant_ranges: &[],
                 });
 
@@ -251,8 +296,9 @@ impl<'a> State<'a> {
             sprite_sheet,
             sprite,
             camera,
+            world_uniform,
             // projection,
-            camera_bind_group,
+            uniform_bind_group,
         }
     }
     fn window(&self) -> &Window {
@@ -267,6 +313,7 @@ impl<'a> State<'a> {
                 .surface
                 .configure(&self.context.device, &self.context.config);
             self.camera.resize(new_size.width, new_size.height);
+            self.world_uniform.resize(new_size.width, new_size.height);
         }
     }
 
@@ -314,7 +361,7 @@ impl<'a> State<'a> {
 
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_bind_group(0, self.sprite.bind_group(), &[]);
-            render_pass.set_bind_group(1, &self.camera_bind_group, &[]);
+            render_pass.set_bind_group(1, &self.uniform_bind_group, &[]);
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
             render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16); // 1.
             render_pass.draw_indexed(0..self.num_indices, 0, 0..1);

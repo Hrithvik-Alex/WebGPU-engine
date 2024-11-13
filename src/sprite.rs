@@ -17,12 +17,12 @@ impl Sprite {
         let vertices: [model::ModelVertex; 4] = [
             // Changed
             model::ModelVertex {
-                position: [100.0, 900.0, 1.0],
+                position: [0.0, 360.0, 1.0],
                 tex_coords: [0.0, 0.0],
                 normal: [0.0, 0.0, 0.0],
             }, // A
             model::ModelVertex {
-                position: [900.0, 900.0, 1.0],
+                position: [640.0, 360.0, 1.0],
                 tex_coords: [
                     sprite_sheet.sprite_width as f32 / sprite_sheet.dimensions.0 as f32,
                     0.0,
@@ -30,7 +30,7 @@ impl Sprite {
                 normal: [0.0, 0.0, 0.0],
             }, // B
             model::ModelVertex {
-                position: [100.0, 100.0, 1.0],
+                position: [0.0, 0.0, 1.0],
                 tex_coords: [
                     0.0,
                     sprite_sheet.sprite_height as f32 / sprite_sheet.dimensions.1 as f32,
@@ -38,7 +38,7 @@ impl Sprite {
                 normal: [0.0, 0.0, 0.0],
             }, // C
             model::ModelVertex {
-                position: [900.0, 100.0, 1.0],
+                position: [640.0, 0.0, 1.0],
                 tex_coords: [
                     (sprite_sheet.sprite_width as f32) / sprite_sheet.dimensions.0 as f32,
                     sprite_sheet.sprite_height as f32 / sprite_sheet.dimensions.1 as f32,
