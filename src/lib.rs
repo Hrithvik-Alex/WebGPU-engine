@@ -1,7 +1,10 @@
 mod camera;
+mod component;
 mod context;
+mod entity;
 mod input;
 mod model;
+mod render_system;
 mod sprite;
 mod state;
 mod texture;
