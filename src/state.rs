@@ -1,58 +1,57 @@
 use crate::camera;
+use crate::component;
 use crate::context;
 use crate::model;
 use crate::sprite;
 
 use std::sync::Arc;
 
-use cgmath::SquareMatrix;
 use model::Vertex;
 
 use log::debug;
-use wgpu::util::DeviceExt;
 use winit::{dpi::PhysicalPosition, event::*};
 
 use winit::window::Window;
 
-#[repr(C)]
-// This is so we can store this in a buffer
-#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-pub struct WorldUniform {
-    mat: [[f32; 4]; 4],
-}
+// #[repr(C)]
+// // This is so we can store this in a buffer
+// #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+// pub struct WorldUniform {
+//     mat: [[f32; 4]; 4],
+// }
 
-impl WorldUniform {
-    const WORLD_SCREEN_WIDTH: u32 = 640;
-    const WORLD_SCREEN_HEIGHT: u32 = 360;
+// impl WorldUniform {
+//     const WORLD_SCREEN_WIDTH: u32 = 640;
+//     const WORLD_SCREEN_HEIGHT: u32 = 360;
 
-    pub fn new() -> Self {
-        Self {
-            mat: cgmath::Matrix4::identity().into(),
-        }
-    }
+//     pub fn new() -> Self {
+//         Self {
+//             mat: cgmath::Matrix4::identity().into(),
+//         }
+//     }
 
-    fn calc(&self, width: u32, height: u32) -> cgmath::Matrix4<f32> {
-        #[cfg_attr(rustfmt, rustfmt_skip)]
-         cgmath::Matrix4::new(
-            width as f32/Self::WORLD_SCREEN_WIDTH as f32, 0., 0., 0.,
-            0., height as f32/Self::WORLD_SCREEN_HEIGHT as f32, 0., 0.,
-            0., 0., 1., 0.,
-            0., 0., 0., 1.,
-        )
-    }
+//     fn calc(&self, width: u32, height: u32) -> cgmath::Matrix4<f32> {
+//         #[cfg_attr(rustfmt, rustfmt_skip)]
+//          cgmath::Matrix4::new(
+//             width as f32/Self::WORLD_SCREEN_WIDTH as f32, 0., 0., 0.,
+//             0., height as f32/Self::WORLD_SCREEN_HEIGHT as f32, 0., 0.,
+//             0., 0., 1., 0.,
+//             0., 0., 0., 1.,
+//         )
+//     }
 
-    pub fn resize(&mut self, width: u32, height: u32) {
-        self.mat = self.calc(width, height).into();
-    }
+//     pub fn resize(&mut self, width: u32, height: u32) {
+//         self.mat = self.calc(width, height).into();
+//     }
 
-    pub fn get_buffer(&self, device: &wgpu::Device) -> wgpu::Buffer {
-        device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("ortho buffer"),
-            contents: bytemuck::cast_slice(&[self.mat]),
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        })
-    }
-}
+//     pub fn get_buffer(&self, device: &wgpu::Device) -> wgpu::Buffer {
+//         device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+//             label: Some("ortho buffer"),
+//             contents: bytemuck::cast_slice(&[self.mat]),
+//             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+//         })
+//     }
+// }
 
 pub struct State<'a> {
     context: context::Context<'a>,
@@ -65,7 +64,7 @@ pub struct State<'a> {
     sprite_sheet: Arc<sprite::SpriteSheet>,
     pub sprite: sprite::Sprite,
     camera: camera::OrthographicCamera,
-    world_uniform: WorldUniform,
+    // world_uniform: WorldUniform,
     // camera: camera::Camera,
     // projection: camera::Projection,
     uniform_bind_group: wgpu::BindGroup,
@@ -77,37 +76,36 @@ impl<'a> State<'a> {
         let size = window.inner_size();
         let context = context::Context::new(window).await;
 
-        let texture_bind_group_layout =
-            context
-                .device
-                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                    entries: &[
-                        wgpu::BindGroupLayoutEntry {
-                            binding: 0,
-                            visibility: wgpu::ShaderStages::FRAGMENT,
-                            ty: wgpu::BindingType::Texture {
-                                multisampled: false,
-                                view_dimension: wgpu::TextureViewDimension::D2,
-                                sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                            },
-                            count: None,
-                        },
-                        wgpu::BindGroupLayoutEntry {
-                            binding: 1,
-                            visibility: wgpu::ShaderStages::FRAGMENT,
-                            // This should match the filterable field of the
-                            // corresponding Texture entry above.
-                            ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                            count: None,
-                        },
-                    ],
-                    label: Some("texture_bind_group_layout"),
-                });
+        // let texture_bind_group_layout =
+        //     context
+        //         .device
+        //         .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+        //             entries: &[
+        //                 wgpu::BindGroupLayoutEntry {
+        //                     binding: 0,
+        //                     visibility: wgpu::ShaderStages::FRAGMENT,
+        //                     ty: wgpu::BindingType::Texture {
+        //                         multisampled: false,
+        //                         view_dimension: wgpu::TextureViewDimension::D2,
+        //                         sample_type: wgpu::TextureSampleType::Float { filterable: true },
+        //                     },
+        //                     count: None,
+        //                 },
+        //                 wgpu::BindGroupLayoutEntry {
+        //                     binding: 1,
+        //                     visibility: wgpu::ShaderStages::FRAGMENT,
+        //                     // This should match the filterable field of the
+        //                     // corresponding Texture entry above.
+        //                     ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+        //                     count: None,
+        //                 },
+        //             ],
+        //             label: Some("texture_bind_group_layout"),
+        //         });
 
         // println!("Current directory: {:?}", std::env::current_dir().unwrap());
         let sprite_sheet = Arc::new(sprite::SpriteSheet::new(
             &context,
-            &texture_bind_group_layout,
             "./assets/warrior_spritesheet_calciumtrice.png".to_string(),
             32,
             32,
@@ -133,7 +131,7 @@ impl<'a> State<'a> {
         );
 
         let camera_buffer = camera.get_buffer(&context.device);
-        let mut world_uniform = WorldUniform::new();
+        let mut world_uniform = component::WorldUniform::new();
         world_uniform.resize(size.width, size.height);
         let world_buffer = world_uniform.get_buffer(&context.device);
 

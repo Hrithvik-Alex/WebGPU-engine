@@ -26,7 +26,7 @@ impl Sprite {
     }
 
     pub fn bind_group(&self) -> &wgpu::BindGroup {
-        &self.sprite_sheet.bind_group
+        &self.sprite_sheet.texture.bind_group
     }
 
     pub fn vertices(&self) -> [model::ModelVertex2d; 4] {
@@ -129,13 +129,11 @@ pub struct SpriteSheet {
     num_sprites: u32,
     dimensions: (u32, u32),
     texture: texture::Texture,
-    bind_group: wgpu::BindGroup,
 }
 
 impl SpriteSheet {
     pub fn new(
         context: &context::Context,
-        texture_bind_group_layout: &wgpu::BindGroupLayout,
         image_path: String,
         sprite_width: u32,
         sprite_height: u32,
@@ -153,23 +151,6 @@ impl SpriteSheet {
         let dimensions = texture.dimensions;
         let num_sprites = (dimensions.0 / sprite_width) * (dimensions.1 / sprite_height);
 
-        let bind_group = context
-            .device
-            .create_bind_group(&wgpu::BindGroupDescriptor {
-                layout: &texture_bind_group_layout,
-                entries: &[
-                    wgpu::BindGroupEntry {
-                        binding: 0,
-                        resource: wgpu::BindingResource::TextureView(&texture.view),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 1,
-                        resource: wgpu::BindingResource::Sampler(&texture.sampler),
-                    },
-                ],
-                label: Some("diffuse_bind_group"),
-            });
-
         Self {
             image_path,
             sprite_width,
@@ -177,7 +158,6 @@ impl SpriteSheet {
             num_sprites,
             dimensions,
             texture,
-            bind_group,
         }
     }
 

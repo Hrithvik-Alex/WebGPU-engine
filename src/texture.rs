@@ -1,3 +1,4 @@
+use crate::{component, context};
 use anyhow::*;
 use image::GenericImageView;
 
@@ -7,6 +8,8 @@ pub struct Texture {
     pub view: wgpu::TextureView,
     pub sampler: wgpu::Sampler,
     pub dimensions: (u32, u32),
+    pub bind_group: wgpu::BindGroup,
+    pub bind_group_layout: wgpu::BindGroupLayout,
 }
 
 impl Texture {
@@ -90,11 +93,52 @@ impl Texture {
             ..Default::default()
         });
 
+        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture {
+                        multisampled: false,
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    // This should match the filterable field of the
+                    // corresponding Texture entry above.
+                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                    count: None,
+                },
+            ],
+            label: Some("texture_bind_group_layout"),
+        });
+
+        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&sampler),
+                },
+            ],
+            label: Some("diffuse_bind_group"),
+        });
+
         Ok(Self {
             texture,
             view,
             sampler,
             dimensions,
+            bind_group,
+            bind_group_layout,
         })
     }
 }

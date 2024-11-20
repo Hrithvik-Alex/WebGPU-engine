@@ -1,3 +1,4 @@
+use crate::component::Component;
 use winit::window::Window;
 
 pub struct Context<'a> {
@@ -5,6 +6,12 @@ pub struct Context<'a> {
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
     pub config: wgpu::SurfaceConfiguration,
+}
+
+impl<'a> Component for Context<'a> {
+    fn name(&self) -> String {
+        "Context".to_string()
+    }
 }
 
 impl<'a> Context<'a> {
