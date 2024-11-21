@@ -17,6 +17,32 @@ impl Component for VertexArrayComponent {
     }
 }
 
+impl VertexArrayComponent {
+    pub fn quad() -> Self {
+        let vertices = vec![
+            cgmath::Vector2::new(0.0, 1.0), // TOP-LEFT
+            cgmath::Vector2::new(1.0, 1.0), // TOP-RIGHT
+            cgmath::Vector2::new(0.0, 0.0), // BOTTOM-LEFT
+            cgmath::Vector2::new(1.0, 0.0), // BOTTOM-RIGHT
+        ];
+
+        let indices = vec![0, 2, 3, 0, 3, 1];
+
+        let tex_coords = vec![
+            cgmath::Vector2::new(0.0, 0.0), // TOP-LEFT
+            cgmath::Vector2::new(1.0, 0.0), // TOP-RIGHT
+            cgmath::Vector2::new(0.0, 1.0), // BOTTOM-LEFT
+            cgmath::Vector2::new(1.0, 1.0), // BOTTOM-RIGHT
+        ];
+
+        Self {
+            vertices,
+            indices,
+            tex_coords,
+        }
+    }
+}
+
 pub struct PositionComponent {
     pub position: cgmath::Vector2<f32>,
     pub scale: f32,

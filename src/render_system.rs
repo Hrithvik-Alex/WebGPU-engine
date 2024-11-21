@@ -28,8 +28,8 @@ impl<'a> RenderSystem<'a> {
         textures: Vec<&'a texture::Texture>,
         context: &'a context::Context,
         size: PhysicalSize<u32>,
-        world_uniform: component::WorldUniform,
-        camera: camera::OrthographicCamera,
+        world_uniform: &'a component::WorldUniform,
+        camera: &'a camera::OrthographicCamera,
     ) -> Self {
         assert!(positions.len() == vertex_arrays.len());
 

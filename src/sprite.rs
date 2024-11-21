@@ -2,6 +2,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use std::time::Instant;
 
+use crate::component;
 use crate::context;
 use crate::model;
 use crate::texture;
@@ -128,7 +129,7 @@ pub struct SpriteSheet {
     sprite_height: u32,
     num_sprites: u32,
     dimensions: (u32, u32),
-    texture: texture::Texture,
+    pub texture: texture::Texture,
 }
 
 impl SpriteSheet {
@@ -163,5 +164,18 @@ impl SpriteSheet {
 
     pub fn get_position_by_index(&self, index: u32) -> Vector2<u32> {
         Vector2::new(index % self.dimensions.1, index / self.dimensions.1)
+    }
+
+    pub fn adjust_tex_coords(&self, vertex_array: &mut component::VertexArrayComponent) {
+        vertex_array.tex_coords = vertex_array
+            .tex_coords
+            .iter()
+            .map(|tex_coord| {
+                cgmath::Vector2::new(
+                    tex_coord.x * self.sprite_width as f32 / self.dimensions.0 as f32,
+                    tex_coord.y * self.sprite_height as f32 / self.dimensions.1 as f32,
+                )
+            })
+            .collect()
     }
 }
