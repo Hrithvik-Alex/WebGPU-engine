@@ -8,6 +8,7 @@ pub trait Component {
 pub struct VertexArrayComponent {
     pub vertices: Vec<cgmath::Vector2<f32>>,
     pub indices: Vec<u32>,
+    pub whole_tex_coords: Vec<cgmath::Vector2<f32>>,
     pub tex_coords: Vec<cgmath::Vector2<f32>>,
 }
 
@@ -28,7 +29,7 @@ impl VertexArrayComponent {
 
         let indices = vec![0, 2, 3, 0, 3, 1];
 
-        let tex_coords = vec![
+        let whole_tex_coords = vec![
             cgmath::Vector2::new(0.0, 0.0), // TOP-LEFT
             cgmath::Vector2::new(1.0, 0.0), // TOP-RIGHT
             cgmath::Vector2::new(0.0, 1.0), // BOTTOM-LEFT
@@ -38,7 +39,8 @@ impl VertexArrayComponent {
         Self {
             vertices,
             indices,
-            tex_coords,
+            tex_coords: whole_tex_coords.clone(),
+            whole_tex_coords,
         }
     }
 }
@@ -77,7 +79,7 @@ impl WorldUniform {
         }
     }
 
-    fn calc(&self, width: u32, height: u32) -> cgmath::Matrix4<f32> {
+    pub fn calc(&self, width: u32, height: u32) -> cgmath::Matrix4<f32> {
         #[cfg_attr(rustfmt, rustfmt_skip)]
          cgmath::Matrix4::new(
             width as f32/Self::WORLD_SCREEN_WIDTH as f32, 0., 0., 0.,

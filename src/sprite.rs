@@ -8,11 +8,12 @@ use crate::model;
 use crate::texture;
 
 use cgmath::Vector2;
+use log::debug;
 
 pub struct Sprite {
     sprite_sheet: Arc<SpriteSheet>,
     position: Vector2<f32>,
-    sheet_position: Vector2<u32>,
+    pub sheet_position: Vector2<u32>,
     scale: f32,
 }
 
@@ -166,16 +167,28 @@ impl SpriteSheet {
         Vector2::new(index % self.dimensions.1, index / self.dimensions.1)
     }
 
-    pub fn adjust_tex_coords(&self, vertex_array: &mut component::VertexArrayComponent) {
+    pub fn adjust_tex_coords(
+        &self,
+        vertex_array: &mut component::VertexArrayComponent,
+        sheet_position: Vector2<u32>,
+    ) {
+        let step_x = self.sprite_width as f32 / self.dimensions.0 as f32;
+        let step_y = self.sprite_height as f32 / self.dimensions.1 as f32;
+        let sheet_x = sheet_position.x as f32 * step_x;
+        let sheet_y = sheet_position.y as f32 * step_y;
+
         vertex_array.tex_coords = vertex_array
-            .tex_coords
+            .whole_tex_coords
             .iter()
-            .map(|tex_coord| {
+            .map(|whole_tex_coord| {
                 cgmath::Vector2::new(
-                    tex_coord.x * self.sprite_width as f32 / self.dimensions.0 as f32,
-                    tex_coord.y * self.sprite_height as f32 / self.dimensions.1 as f32,
+                    sheet_x + whole_tex_coord.x * step_x,
+                    sheet_y + whole_tex_coord.y * step_y,
                 )
             })
-            .collect()
+            .collect();
+
+        // debug!("{:?}", vertex_array.tex_coords);
+        // debug!("{:?}", sheet_position);
     }
 }

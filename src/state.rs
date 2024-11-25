@@ -3,7 +3,9 @@ use crate::component;
 use crate::context;
 use crate::model;
 use crate::render_system;
+use crate::render_system::RenderSystem;
 use crate::sprite;
+use crate::texture;
 
 use std::sync::Arc;
 
@@ -55,6 +57,7 @@ use winit::window::Window;
 // }
 
 pub struct State<'a> {
+    // is_initialized: bool,
     context: context::Context<'a>,
     pub size: winit::dpi::PhysicalSize<u32>,
     pub window: &'a Window,
@@ -62,21 +65,24 @@ pub struct State<'a> {
     // render_pipeline: wgpu::RenderPipeline,
     // index_buffer: wgpu::Buffer,
     // num_indices: u32,
-    sprite_sheet: Arc<sprite::SpriteSheet>,
-    render_system: render_system::RenderSystem<'a>,
+    sprite_sheets: Vec<Arc<sprite::SpriteSheet>>,
+    // sprite_sheet: Arc<sprite::SpriteSheet>,
+    sprite_position_comp: component::PositionComponent,
+    render_system: render_system::RenderSystem,
     pub sprite: sprite::Sprite,
     camera: camera::OrthographicCamera,
     world_uniform: component::WorldUniform,
-    // camera: camera::Camera,
-    // projection: camera::Projection,
-    // uniform_bind_group: wgpu::BindGroup,
+    quad: component::VertexArrayComponent, // camera: camera::Camera,
+                                           // projection: camera::Projection,
+                                           // uniform_bind_group: wgpu::BindGroup,
 }
 
 impl<'a> State<'a> {
     // Creating some of the wgpu types requires async code
+
     pub async fn new(window: &'a Window) -> State<'a> {
         let size = window.inner_size();
-        let context = context::Context::new(window).await;
+        let context: context::Context<'a> = context::Context::new(window).await;
 
         // let texture_bind_group_layout =
         //     context
@@ -106,7 +112,7 @@ impl<'a> State<'a> {
         //         });
 
         // println!("Current directory: {:?}", std::env::current_dir().unwrap());
-        let sprite_sheet = Arc::new(sprite::SpriteSheet::new(
+        let hero_sprite_sheet = Arc::new(sprite::SpriteSheet::new(
             &context,
             "./assets/warrior_spritesheet_calciumtrice.png".to_string(),
             32,
@@ -114,15 +120,19 @@ impl<'a> State<'a> {
             true,
         ));
 
-        let sprite_postion_comp = component::PositionComponent {
+        let sprite_position_comp = component::PositionComponent {
             position: cgmath::Vector2::new(50., 100.),
             scale: 64.,
         };
         let sprite = sprite::Sprite::new(
-            &sprite_sheet,
-            sprite_postion_comp.scale,
-            sprite_postion_comp.position,
+            &hero_sprite_sheet,
+            sprite_position_comp.scale,
+            sprite_position_comp.position,
         );
+
+        let mut quad = component::VertexArrayComponent::quad();
+        hero_sprite_sheet.adjust_tex_coords(&mut quad, sprite.sheet_position);
+
         // let camera = camera::Camera::new(cgmath::Vector3::new(0.0, 0.0, 5.0));
         // let camera_buffer = camera.get_buffer(&context.device);
 
@@ -277,15 +287,18 @@ impl<'a> State<'a> {
         //     });
 
         // let num_indices = sprite.indices().len() as u32;
+        let sprite_sheets = vec![hero_sprite_sheet];
 
-        let mut quad = component::VertexArrayComponent::quad();
-        sprite_sheet.adjust_tex_coords(&mut quad);
+        let textures = sprite_sheets
+            .iter()
+            .map(|sprite_sheet| -> &texture::Texture { &sprite_sheet.texture })
+            .collect::<Vec<&texture::Texture>>();
+
         let render_system = render_system::RenderSystem::new(
-            vec![&sprite_postion_comp],
+            vec![&sprite_position_comp],
             vec![&quad],
-            vec![&sprite_sheet.texture],
+            textures,
             &context,
-            size,
             &world_uniform,
             &camera,
         );
@@ -299,14 +312,16 @@ impl<'a> State<'a> {
             // index_buffer,
             // num_indices,
             render_system,
-            sprite_sheet,
+            sprite_position_comp,
+            sprite_sheets,
             sprite,
             camera,
             world_uniform,
-            // projection,
-            // uniform_bind_group,
+            quad, // projection,
+                  // uniform_bind_group,
         }
     }
+
     pub fn window(&self) -> &Window {
         &self.window
     }
@@ -333,11 +348,19 @@ impl<'a> State<'a> {
     pub fn update(&mut self) {}
 
     pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
-        self.render_system.render(&self.context)
-        // let vertex_buffer =
-        //     self.context
-        //         .device
-        //         .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        let textures = self
+            .sprite_sheets
+            .iter()
+            .map(|sprite_sheet| -> &texture::Texture { &sprite_sheet.texture })
+            .collect::<Vec<&texture::Texture>>();
+
+        self.sprite_sheets[0].adjust_tex_coords(&mut self.quad, self.sprite.sheet_position);
+        self.render_system.render(
+            vec![&self.sprite_position_comp],
+            vec![&self.quad],
+            textures,
+            &self.context,
+        )
         //             label: Some("Vertex Buffer"),
         //             contents: bytemuck::cast_slice(&self.sprite.vertices()),
         //             usage: wgpu::BufferUsages::VERTEX,

@@ -212,6 +212,7 @@ impl OrthoUniform {
     }
 }
 
+#[derive(Clone)]
 pub struct OrthographicCamera {
     width: u32,
     height: u32,

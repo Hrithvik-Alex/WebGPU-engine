@@ -2,34 +2,34 @@ use std::iter;
 
 use crate::camera;
 use crate::component;
+use crate::component::WorldUniform;
 use crate::context;
 use crate::model;
 use crate::model::ModelVertex2d;
 use crate::model::Vertex;
 use crate::texture;
 
+use log::debug;
 use wgpu::util::DeviceExt;
 use winit::dpi::PhysicalSize;
 
-pub struct RenderSystem<'a> {
-    positions: Vec<&'a component::PositionComponent>,
-    vertex_arrays: Vec<&'a component::VertexArrayComponent>,
-    textures: Vec<&'a texture::Texture>,
-    context: &'a context::Context<'a>,
-    size: PhysicalSize<u32>,
+pub struct RenderSystem {
+    // positions: Vec<&'a component::PositionComponent>,
+    // vertex_arrays: Vec<&'a component::VertexArrayComponent>,
+    // textures: Vec<&'a texture::Texture>,
+    // context: &'a context::Context<'a>,
     render_pipeline: wgpu::RenderPipeline,
     uniform_bind_group: wgpu::BindGroup,
 }
 
-impl<'a> RenderSystem<'a> {
+impl RenderSystem {
     pub fn new(
-        positions: Vec<&'a component::PositionComponent>,
-        vertex_arrays: Vec<&'a component::VertexArrayComponent>,
-        textures: Vec<&'a texture::Texture>,
-        context: &'a context::Context,
-        size: PhysicalSize<u32>,
-        world_uniform: &'a component::WorldUniform,
-        camera: &'a camera::OrthographicCamera,
+        positions: Vec<&component::PositionComponent>,
+        vertex_arrays: Vec<&component::VertexArrayComponent>,
+        textures: Vec<&texture::Texture>,
+        context: &context::Context,
+        world_uniform: &component::WorldUniform,
+        camera: &camera::OrthographicCamera,
     ) -> Self {
         assert!(positions.len() == vertex_arrays.len());
 
@@ -45,6 +45,9 @@ impl<'a> RenderSystem<'a> {
         // let mut world_uniform = WorldUniform::new();
         // world_uniform.resize(size.width, size.height);
         let world_buffer = world_uniform.get_buffer(&context.device);
+
+        // debug!("{:?}", camera_buffer);
+        // debug!("{:?}", world_buffer);
 
         let uniform_bind_group_layout =
             context
@@ -172,9 +175,6 @@ impl<'a> RenderSystem<'a> {
 
         let render_pipeline = create_render_pipeline("Render Pipeline", "vs_main", "fs_main");
 
-        // debug!("{:?}", (bytemuck::cast_slice::<_, f32>(&sprite.vertices())));
-        // debug!("{:?}", (bytemuck::cast_slice::<_, u16>(&sprite.indices())));
-
         // let index_buffer = context
         //     .device
         //     .create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -186,16 +186,17 @@ impl<'a> RenderSystem<'a> {
         // let num_indices = sprite.indices().len() as u32;
 
         Self {
-            positions,
-            vertex_arrays,
-            textures,
-            context,
-            size,
             render_pipeline,
             uniform_bind_group,
         }
     }
-    pub fn render(&self, context: &context::Context) -> Result<(), wgpu::SurfaceError> {
+    pub fn render(
+        &self,
+        positions: Vec<&component::PositionComponent>,
+        vertex_arrays: Vec<&component::VertexArrayComponent>,
+        textures: Vec<&texture::Texture>,
+        context: &context::Context,
+    ) -> Result<(), wgpu::SurfaceError> {
         // let model_vertices: Vec<model::ModelVertex2d> = self
         //     .positions
         //     .iter()
@@ -215,9 +216,9 @@ impl<'a> RenderSystem<'a> {
         //     .collect();
         let mut all_vertices: Vec<ModelVertex2d> = vec![];
         let mut all_indices: Vec<u32> = vec![];
-        for i in 0..self.positions.len() {
-            let vertex_array = self.vertex_arrays[i];
-            let pos = self.positions[i];
+        for i in 0..positions.len() {
+            let vertex_array = vertex_arrays[i];
+            let pos = positions[i];
             let model_vertices = vertex_array
                 .vertices
                 .iter()
@@ -266,7 +267,7 @@ impl<'a> RenderSystem<'a> {
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 0.7,
+                            r: 0.2,
                             g: 0.7,
                             b: 0.7,
                             a: 1.0,
@@ -280,16 +281,13 @@ impl<'a> RenderSystem<'a> {
             });
 
             render_pass.set_pipeline(&self.render_pipeline);
-            self.textures
-                .iter()
-                .enumerate()
-                .for_each(|(index, &texture)| {
-                    render_pass.set_bind_group(index as u32, &texture.bind_group, &[]);
-                });
+            textures.iter().enumerate().for_each(|(index, &texture)| {
+                render_pass.set_bind_group(index as u32, &texture.bind_group, &[]);
+            });
             // render_pass.set_bind_group(0, self.sprite.bind_group(), &[]);
-            render_pass.set_bind_group(self.textures.len() as u32, &self.uniform_bind_group, &[]);
+            render_pass.set_bind_group(textures.len() as u32, &self.uniform_bind_group, &[]);
             render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
-            render_pass.set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint16); // 1.
+            render_pass.set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint32); // 1.
             render_pass.draw_indexed(0..all_indices.len() as u32, 0, 0..1);
         }
 

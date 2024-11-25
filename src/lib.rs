@@ -69,7 +69,7 @@ pub async fn run() {
 
     let mut idle_anim = sprite::SpriteAnimation {
         animation_index: 0,
-        sprite_count: 8,
+        sprite_count: 10,
         start_index: 0,
         per_sprite_duration: Duration::new(0, 125000000),
         current_elapsed_time: Duration::new(0, 0),
