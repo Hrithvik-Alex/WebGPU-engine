@@ -110,6 +110,12 @@ pub struct SpriteAnimation {
     pub current_elapsed_time: Duration,
 }
 
+impl component::Component for SpriteAnimation {
+    fn name(&self) -> String {
+        "SpriteAnimation".to_string()
+    }
+}
+
 impl SpriteAnimation {
     pub fn update(&mut self, delta_time: Duration) {
         self.current_elapsed_time += delta_time;

@@ -10,6 +10,7 @@ use crate::model::Vertex;
 use crate::texture;
 
 use log::debug;
+use slotmap::DenseSlotMap;
 use wgpu::util::DeviceExt;
 use winit::dpi::PhysicalSize;
 
@@ -24,26 +25,12 @@ pub struct RenderSystem {
 
 impl RenderSystem {
     pub fn new(
-        positions: Vec<&component::PositionComponent>,
-        vertex_arrays: Vec<&component::VertexArrayComponent>,
         textures: Vec<&texture::Texture>,
         context: &context::Context,
         world_uniform: &component::WorldUniform,
         camera: &camera::OrthographicCamera,
     ) -> Self {
-        assert!(positions.len() == vertex_arrays.len());
-
-        // let camera = camera::OrthographicCamera::new(
-        //     size.width,
-        //     size.height,
-        //     0.1,
-        //     100.0,
-        //     cgmath::Vector3::new(size.width as f32 / 2.0, size.height as f32 / 2.0, 1.0),
-        // );
-
         let camera_buffer = camera.get_buffer(&context.device);
-        // let mut world_uniform = WorldUniform::new();
-        // world_uniform.resize(size.width, size.height);
         let world_buffer = world_uniform.get_buffer(&context.device);
 
         // debug!("{:?}", camera_buffer);
@@ -175,16 +162,6 @@ impl RenderSystem {
 
         let render_pipeline = create_render_pipeline("Render Pipeline", "vs_main", "fs_main");
 
-        // let index_buffer = context
-        //     .device
-        //     .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-        //         label: Some("Index Buffer"),
-        //         contents: bytemuck::cast_slice(&sprite.indices()),
-        //         usage: wgpu::BufferUsages::INDEX,
-        //     });
-
-        // let num_indices = sprite.indices().len() as u32;
-
         Self {
             render_pipeline,
             uniform_bind_group,
@@ -192,46 +169,48 @@ impl RenderSystem {
     }
     pub fn render(
         &self,
-        positions: Vec<&component::PositionComponent>,
-        vertex_arrays: Vec<&component::VertexArrayComponent>,
+        positions: &component::EntityMap<&component::PositionComponent>,
+        vertex_arrays: &component::EntityMap<&component::VertexArrayComponent>,
         textures: Vec<&texture::Texture>,
         context: &context::Context,
     ) -> Result<(), wgpu::SurfaceError> {
-        // let model_vertices: Vec<model::ModelVertex2d> = self
-        //     .positions
-        //     .iter()
-        //     .zip(self.vertex_arrays.iter())
-        //     .map(|(&pos, &vertex_array)| {
-        //         vertex_array
-        //             .vertices
-        //             .iter()
-        //             .zip(vertex_array.tex_coords.iter())
-        //             .map(|(vertex_pos, &tex_coord)| model::ModelVertex2d {
-        //                 position: ((vertex_pos * pos.scale) + pos.position).into(),
-        //                 tex_coords: tex_coord.into(),
-        //                 normal: [0.0, 0.0, 0.0],
-        //             })
-        //     })
-        //     .flatten()
-        //     .collect();
-        let mut all_vertices: Vec<ModelVertex2d> = vec![];
-        let mut all_indices: Vec<u32> = vec![];
-        for i in 0..positions.len() {
-            let vertex_array = vertex_arrays[i];
-            let pos = positions[i];
-            let model_vertices = vertex_array
-                .vertices
-                .iter()
-                .zip(vertex_array.tex_coords.iter())
-                .map(|(vertex_pos, &tex_coord)| model::ModelVertex2d {
-                    position: ((vertex_pos * pos.scale) + pos.position).into(),
-                    tex_coords: tex_coord.into(),
-                    normal: [0.0, 0.0, 0.0],
-                });
+        // let mut all_vertices: Vec<ModelVertex2d> = vec![];
+        // let mut all_indices: Vec<u32> = vec![];
 
-            all_vertices.extend(model_vertices);
-            all_indices.extend_from_slice(&vertex_array.indices);
-        }
+        let (all_vertices, all_indices) = positions.iter().zip(vertex_arrays.iter()).fold(
+            (Vec::new(), Vec::new()),
+            |(mut vertices, mut indices), ((_, &pos), (_, &vertex_array))| {
+                vertices.extend(
+                    vertex_array
+                        .vertices
+                        .iter()
+                        .zip(vertex_array.tex_coords.iter())
+                        .map(|(vertex_pos, &tex_coord)| model::ModelVertex2d {
+                            position: ((vertex_pos * pos.scale) + pos.position).into(),
+                            tex_coords: tex_coord.into(),
+                            normal: [0.0, 0.0, 0.0],
+                        }),
+                );
+                indices.extend_from_slice(&vertex_array.indices);
+                (vertices, indices)
+            },
+        );
+        // for i in 0..positions.len() {
+        //     let vertex_array = vertex_arrays[i];
+        //     let pos = positions[i];
+        //     let model_vertices = vertex_array
+        //         .vertices
+        //         .iter()
+        //         .zip(vertex_array.tex_coords.iter())
+        //         .map(|(vertex_pos, &tex_coord)| model::ModelVertex2d {
+        //             position: ((vertex_pos * pos.scale) + pos.position).into(),
+        //             tex_coords: tex_coord.into(),
+        //             normal: [0.0, 0.0, 0.0],
+        //         });
+
+        //     all_vertices.extend(model_vertices);
+        //     all_indices.extend_from_slice(&vertex_array.indices);
+        // }
 
         let vertex_buffer = context
             .device
@@ -284,7 +263,6 @@ impl RenderSystem {
             textures.iter().enumerate().for_each(|(index, &texture)| {
                 render_pass.set_bind_group(index as u32, &texture.bind_group, &[]);
             });
-            // render_pass.set_bind_group(0, self.sprite.bind_group(), &[]);
             render_pass.set_bind_group(textures.len() as u32, &self.uniform_bind_group, &[]);
             render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
             render_pass.set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint32); // 1.

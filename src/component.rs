@@ -1,5 +1,9 @@
 use cgmath::SquareMatrix;
+use slotmap::DenseSlotMap;
 use wgpu::util::DeviceExt;
+
+pub type Entity = slotmap::DefaultKey;
+pub type EntityMap<T> = DenseSlotMap<Entity, T>;
 
 pub trait Component {
     fn name(&self) -> String;
