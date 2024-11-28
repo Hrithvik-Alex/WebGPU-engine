@@ -1,3 +1,4 @@
+mod animation;
 mod camera;
 mod component;
 mod context;
@@ -67,13 +68,12 @@ pub async fn run() {
     let mut seconds_elapsed: u64 = 0;
     let mut last_frame_time: Duration = Duration::new(0, 0);
 
-    let mut idle_anim = sprite::SpriteAnimation {
-        animation_index: 0,
-        sprite_count: 10,
-        start_index: 0,
-        per_sprite_duration: Duration::new(0, 125000000),
-        current_elapsed_time: Duration::new(0, 0),
-    };
+    let render_system = render_system::RenderSystem::new(
+        textures,
+        &state.context,
+        &state.world_uniform,
+        &state.camera,
+    );
 
     let _ = event_loop.run(move |event, control_flow| {
         {
@@ -86,11 +86,22 @@ pub async fn run() {
                 seconds_elapsed += 1;
             }
             last_frame_time = current_time;
+
+            animation::AnimationSystem::update_animations(
+                &mut state.sprite_animation_components,
+                &mut state.sheet_position_components,
+                delta_time,
+            );
+
             input_handler.update_state(&mut state, delta_time);
-            idle_anim.update(delta_time);
-            state
-                .sprite
-                .update_sheet_position(idle_anim.get_sheet_index());
+            sprite::SpriteSheetSystem::update(
+                &mut state.vertex_array_components,
+                &state.sheet_position_components,
+            );
+            // idle_anim.update(delta_time);
+            // state
+            //     .sprite
+            //     .update_sheet_position(idle_anim.get_sheet_index());
             match event {
                 Event::WindowEvent {
                     ref event,

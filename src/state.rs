@@ -1,5 +1,7 @@
+use crate::animation;
 use crate::camera;
 use crate::component;
+use crate::component::EntityMap;
 use crate::context;
 use crate::model;
 use crate::render_system;
@@ -7,7 +9,9 @@ use crate::render_system::RenderSystem;
 use crate::sprite;
 use crate::texture;
 
+use std::process::id;
 use std::sync::Arc;
+use std::time::Duration;
 
 use model::Vertex;
 
@@ -17,7 +21,7 @@ use winit::{dpi::PhysicalPosition, event::*};
 use winit::window::Window;
 
 pub struct State<'a> {
-    context: context::Context<'a>,
+    pub context: context::Context<'a>,
     pub size: winit::dpi::PhysicalSize<u32>,
     pub window: &'a Window,
     // position: PhysicalPosition<f64>,
@@ -27,14 +31,17 @@ pub struct State<'a> {
     // TODO: decouple sprite sheet and textures
     sprite_sheets: Vec<Arc<sprite::SpriteSheet>>,
     // sprite_sheet: Arc<sprite::SpriteSheet>,
-    sprite_position_comp: component::PositionComponent,
+    pub position_components: component::EntityMap<component::PositionComponent>,
     render_system: render_system::RenderSystem,
-    pub sprite: sprite::Sprite,
-    camera: camera::OrthographicCamera,
-    world_uniform: component::WorldUniform,
-    quad: component::VertexArrayComponent, // camera: camera::Camera,
-                                           // projection: camera::Projection,
-                                           // uniform_bind_group: wgpu::BindGroup,
+    sprite: sprite::Sprite,
+    pub camera: camera::OrthographicCamera,
+    pub world_uniform: component::WorldUniform,
+    pub vertex_array_components: component::EntityMap<component::VertexArrayComponent>, // camera: camera::Camera,
+    pub sprite_animation_components: component::EntityMap<animation::SpriteAnimation>,
+    pub sheet_position_components: component::EntityMap<sprite::SheetPositionComponent>,
+    // projection: camera::Projection,
+    // uniform_bind_group: wgpu::BindGroup,
+    entities: Vec<component::Entity>,
 }
 
 impl<'a> State<'a> {
@@ -52,12 +59,12 @@ impl<'a> State<'a> {
             true,
         ));
 
-        let sprite_sheets = vec![hero_sprite_sheet];
+        let sprite_sheets = vec![hero_sprite_sheet.clone()];
 
         let textures = sprite_sheets
             .iter()
-            .map(|sprite_sheet| -> &texture::Texture { &sprite_sheet.texture })
-            .collect::<Vec<&texture::Texture>>();
+            .map(|sprite_sheet| sprite_sheet.texture())
+            .collect::<Vec<Arc<texture::Texture>>>();
 
         let camera = camera::OrthographicCamera::new(
             size.width,
@@ -75,12 +82,36 @@ impl<'a> State<'a> {
             scale: 64.,
         };
         let sprite = sprite::Sprite::new(
-            &hero_sprite_sheet,
+            hero_sprite_sheet.clone(),
             sprite_position_comp.scale,
             sprite_position_comp.position,
         );
 
+        let mut position_components = EntityMap::new();
+        position_components.insert(sprite_position_comp);
+
         let quad = component::VertexArrayComponent::quad();
+
+        let mut vertex_array_components = EntityMap::new();
+        vertex_array_components.insert(quad);
+
+        let idle_anim = animation::SpriteAnimation {
+            animation_index: 0,
+            sprite_count: 10,
+            start_index: 0,
+            per_sprite_duration: Duration::new(0, 125000000),
+            current_elapsed_time: Duration::new(0, 0),
+        };
+        let mut sprite_animation_components = EntityMap::new();
+        sprite_animation_components.insert(idle_anim);
+
+        let sheet_position_comp = sprite::SheetPositionComponent {
+            sprite_sheet: hero_sprite_sheet.clone(),
+            sheet_position: cgmath::Vector2::new(0, 0),
+        };
+
+        let mut sheet_position_components = EntityMap::new();
+        sheet_position_components.insert(sheet_position_comp);
         // hero_sprite_sheet.adjust_tex_coords(&mut quad, sprite.sheet_position);
 
         // let camera = camera::Camera::new(cgmath::Vector3::new(0.0, 0.0, 5.0));
@@ -95,6 +126,10 @@ impl<'a> State<'a> {
         let render_system =
             render_system::RenderSystem::new(textures, &context, &world_uniform, &camera);
 
+        let entities = position_components
+            .keys()
+            .collect::<Vec<component::Entity>>();
+
         Self {
             window,
             context,
@@ -104,13 +139,16 @@ impl<'a> State<'a> {
             // index_buffer,
             // num_indices,
             render_system,
-            sprite_position_comp,
+            position_components,
             sprite_sheets,
             sprite,
             camera,
             world_uniform,
-            quad, // projection,
-                  // uniform_bind_group,
+            vertex_array_components, // projection,
+            sprite_animation_components,
+            sheet_position_components,
+            // uniform_bind_group,
+            entities,
         }
     }
 
@@ -143,13 +181,13 @@ impl<'a> State<'a> {
         let textures = self
             .sprite_sheets
             .iter()
-            .map(|sprite_sheet| -> &texture::Texture { &sprite_sheet.texture })
-            .collect::<Vec<&texture::Texture>>();
+            .map(|sprite_sheet| sprite_sheet.texture())
+            .collect::<Vec<Arc<texture::Texture>>>();
 
-        self.sprite_sheets[0].adjust_tex_coords(&mut self.quad, self.sprite.sheet_position);
+        // self.sprite_sheets[0].adjust_tex_coords(&mut self.quad, self.sprite.sheet_position);
         self.render_system.render(
-            vec![&self.sprite_position_comp],
-            vec![&self.quad],
+            &self.position_components,
+            &self.vertex_array_components,
             textures,
             &self.context,
         )

@@ -3,6 +3,7 @@ use std::time::Duration;
 use std::time::Instant;
 
 use crate::component;
+use crate::component::EntityMap;
 use crate::context;
 use crate::model;
 use crate::texture;
@@ -18,9 +19,9 @@ pub struct Sprite {
 }
 
 impl Sprite {
-    pub fn new(sprite_sheet: &Arc<SpriteSheet>, scale: f32, position: Vector2<f32>) -> Self {
+    pub fn new(sprite_sheet: Arc<SpriteSheet>, scale: f32, position: Vector2<f32>) -> Self {
         Self {
-            sprite_sheet: sprite_sheet.clone(),
+            sprite_sheet,
             position,
             sheet_position: Vector2::new(0, 0),
             scale,
@@ -102,31 +103,38 @@ impl Sprite {
     }
 }
 
-pub struct SpriteAnimation {
-    pub animation_index: u32,
-    pub sprite_count: u32,
-    pub start_index: u32,
-    pub per_sprite_duration: Duration,
-    pub current_elapsed_time: Duration,
+pub struct SheetPositionComponent {
+    pub sprite_sheet: Arc<SpriteSheet>,
+    pub sheet_position: cgmath::Vector2<u32>,
 }
 
-impl component::Component for SpriteAnimation {
+impl component::Component for SheetPositionComponent {
     fn name(&self) -> String {
-        "SpriteAnimation".to_string()
+        "SheetPosition".to_string()
     }
 }
 
-impl SpriteAnimation {
-    pub fn update(&mut self, delta_time: Duration) {
-        self.current_elapsed_time += delta_time;
-        if self.current_elapsed_time > self.per_sprite_duration {
-            self.current_elapsed_time -= self.per_sprite_duration;
-            self.animation_index = (self.animation_index + 1) % self.sprite_count;
-        }
-    }
+pub struct SpriteSheetSystem {}
 
-    pub fn get_sheet_index(&self) -> u32 {
-        self.start_index + self.animation_index
+impl SpriteSheetSystem {
+    pub fn update(
+        vertex_array_components: &mut EntityMap<component::VertexArrayComponent>,
+        sheet_position_components: &EntityMap<SheetPositionComponent>,
+    ) {
+        vertex_array_components
+            .iter_mut()
+            .for_each(|(entity_key, vertex_array_component)| {
+                let sheet_position_component = sheet_position_components.get(entity_key);
+                match sheet_position_component {
+                    None => (),
+                    Some(sheet_position_component) => {
+                        sheet_position_component.sprite_sheet.adjust_tex_coords(
+                            vertex_array_component,
+                            sheet_position_component.sheet_position,
+                        )
+                    }
+                }
+            });
     }
 }
 
@@ -136,7 +144,7 @@ pub struct SpriteSheet {
     sprite_height: u32,
     num_sprites: u32,
     dimensions: (u32, u32),
-    pub texture: texture::Texture,
+    texture: Arc<texture::Texture>,
 }
 
 impl SpriteSheet {
@@ -148,14 +156,16 @@ impl SpriteSheet {
         manual_premultiply: bool,
     ) -> Self {
         let bytes = std::fs::read(image_path.clone()).expect("Failed to read sprite sheet image");
-        let texture = crate::texture::Texture::from_bytes(
-            &context.device,
-            &context.queue,
-            &bytes,
-            &image_path,
-            manual_premultiply,
-        )
-        .unwrap();
+        let texture = Arc::new(
+            crate::texture::Texture::from_bytes(
+                &context.device,
+                &context.queue,
+                &bytes,
+                &image_path,
+                manual_premultiply,
+            )
+            .unwrap(),
+        );
         let dimensions = texture.dimensions;
         let num_sprites = (dimensions.0 / sprite_width) * (dimensions.1 / sprite_height);
 
@@ -172,6 +182,12 @@ impl SpriteSheet {
     pub fn get_position_by_index(&self, index: u32) -> Vector2<u32> {
         Vector2::new(index % self.dimensions.1, index / self.dimensions.1)
     }
+
+    pub fn texture(&self) -> Arc<texture::Texture> {
+        return self.texture.clone();
+    }
+
+    // TODO: make a system with sheet position components and vertex array components
 
     pub fn adjust_tex_coords(
         &self,

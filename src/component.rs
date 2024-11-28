@@ -1,6 +1,10 @@
+use std::sync::Arc;
+
 use cgmath::SquareMatrix;
 use slotmap::DenseSlotMap;
 use wgpu::util::DeviceExt;
+
+use crate::{sprite::SpriteSheet, texture};
 
 pub type Entity = slotmap::DefaultKey;
 pub type EntityMap<T> = DenseSlotMap<Entity, T>;
@@ -47,6 +51,15 @@ impl VertexArrayComponent {
             whole_tex_coords,
         }
     }
+
+    // pub fn sprite_quad(
+    //     sprite_sheet: Arc<SpriteSheet>,
+    //     sheet_position: cgmath::Vector2<u32>,
+    // ) -> Self {
+    //     let mut quad = Self::quad();
+    //     sprite_sheet.adjust_tex_coords(&mut quad, sheet_position);
+    //     quad
+    // }
 }
 
 pub struct PositionComponent {

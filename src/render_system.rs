@@ -1,4 +1,5 @@
 use std::iter;
+use std::sync::Arc;
 
 use crate::camera;
 use crate::component;
@@ -25,7 +26,7 @@ pub struct RenderSystem {
 
 impl RenderSystem {
     pub fn new(
-        textures: Vec<&texture::Texture>,
+        textures: Vec<Arc<texture::Texture>>,
         context: &context::Context,
         world_uniform: &component::WorldUniform,
         camera: &camera::OrthographicCamera,
@@ -96,7 +97,7 @@ impl RenderSystem {
 
         let mut bind_group_layouts: Vec<&wgpu::BindGroupLayout> = textures
             .iter()
-            .map(|&texture| &texture.bind_group_layout)
+            .map(|texture| &texture.bind_group_layout)
             .collect();
 
         bind_group_layouts.push(&uniform_bind_group_layout);
@@ -169,8 +170,8 @@ impl RenderSystem {
     }
     pub fn render(
         &self,
-        positions: &component::EntityMap<&component::PositionComponent>,
-        vertex_arrays: &component::EntityMap<&component::VertexArrayComponent>,
+        positions: &component::EntityMap<component::PositionComponent>,
+        vertex_arrays: &component::EntityMap<component::VertexArrayComponent>,
         textures: Vec<&texture::Texture>,
         context: &context::Context,
     ) -> Result<(), wgpu::SurfaceError> {
@@ -179,7 +180,7 @@ impl RenderSystem {
 
         let (all_vertices, all_indices) = positions.iter().zip(vertex_arrays.iter()).fold(
             (Vec::new(), Vec::new()),
-            |(mut vertices, mut indices), ((_, &pos), (_, &vertex_array))| {
+            |(mut vertices, mut indices), ((_, pos), (_, vertex_array))| {
                 vertices.extend(
                     vertex_array
                         .vertices
