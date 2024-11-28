@@ -40,7 +40,15 @@ impl<'a> State<'a> {
             true,
         ));
 
-        let sprite_sheets = vec![hero_sprite_sheet.clone()];
+        let minotaur_sprite_sheet = Arc::new(sprite::SpriteSheet::new(
+            &context,
+            "./assets/minotaur_spritesheet_calciumtrice.png".to_string(),
+            48,
+            48,
+            true,
+        ));
+
+        let sprite_sheets = vec![hero_sprite_sheet.clone(), minotaur_sprite_sheet.clone()];
 
         // let textures = sprite_sheets
         //     .iter()

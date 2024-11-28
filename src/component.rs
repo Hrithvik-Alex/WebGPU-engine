@@ -8,12 +8,13 @@ pub type EntityMap<T> = DenseSlotMap<Entity, Option<T>>;
 pub trait Component {
     fn name(&self) -> String;
 }
-
+#[derive(Debug)]
 pub struct VertexArrayComponent {
     pub vertices: Vec<cgmath::Vector2<f32>>,
     pub indices: Vec<u32>,
     pub whole_tex_coords: Vec<cgmath::Vector2<f32>>,
     pub tex_coords: Vec<cgmath::Vector2<f32>>,
+    pub texture_index: u32,
 }
 
 impl Component for VertexArrayComponent {
@@ -23,7 +24,7 @@ impl Component for VertexArrayComponent {
 }
 
 impl VertexArrayComponent {
-    pub fn quad() -> Self {
+    pub fn textured_quad(texture_index: u32) -> Self {
         let vertices = vec![
             cgmath::Vector2::new(0.0, 1.0), // TOP-LEFT
             cgmath::Vector2::new(1.0, 1.0), // TOP-RIGHT
@@ -45,6 +46,7 @@ impl VertexArrayComponent {
             indices,
             tex_coords: whole_tex_coords.clone(),
             whole_tex_coords,
+            texture_index,
         }
     }
 
@@ -58,6 +60,7 @@ impl VertexArrayComponent {
     // }
 }
 
+#[derive(Debug)]
 pub struct PositionComponent {
     pub position: cgmath::Vector2<f32>,
     pub scale: f32,

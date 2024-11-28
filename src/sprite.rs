@@ -6,6 +6,7 @@ use crate::context;
 use crate::texture;
 
 use cgmath::Vector2;
+use log::debug;
 // pub struct Sprite {
 //     sprite_sheet: Arc<SpriteSheet>,
 //     position: Vector2<f32>,
@@ -162,6 +163,7 @@ impl SpriteSheet {
         );
         let dimensions = texture.dimensions;
 
+        debug!("{:?}", dimensions);
         Self {
             sprite_width,
             sprite_height,

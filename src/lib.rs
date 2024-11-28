@@ -71,31 +71,69 @@ pub async fn run() {
     );
 
     // entity for player
-    let position_component = component::PositionComponent {
-        position: cgmath::Vector2::new(50., 100.),
-        scale: 64.,
-        is_controllable: true,
-    };
-    let vertex_array_component = component::VertexArrayComponent::quad();
-    let sprite_animation = animation::SpriteAnimation {
-        animation_index: 0,
-        sprite_count: 10,
-        start_index: 0,
-        per_sprite_duration: Duration::new(0, 125000000),
-        current_elapsed_time: Duration::new(0, 0),
+    let character = {
+        let position_component = component::PositionComponent {
+            position: cgmath::Vector2::new(50., 100.),
+            scale: 64.,
+            is_controllable: true,
+        };
+
+        let texture_index = 0; // warrior
+
+        let vertex_array_component = component::VertexArrayComponent::textured_quad(texture_index);
+        let sprite_animation = animation::SpriteAnimation {
+            animation_index: 0,
+            sprite_count: 10,
+            start_index: 0,
+            per_sprite_duration: Duration::new(0, 125000000),
+            current_elapsed_time: Duration::new(0, 0),
+        };
+
+        let sheet_position_component = sprite::SheetPositionComponent {
+            sprite_sheet: state.sprite_sheets[texture_index as usize].clone(),
+            sheet_position: cgmath::Vector2::new(0, 0),
+        };
+
+        state.add_entity(
+            Some(position_component),
+            Some(vertex_array_component),
+            Some(sprite_animation),
+            Some(sheet_position_component),
+        )
     };
 
-    let sheet_position_component = sprite::SheetPositionComponent {
-        sprite_sheet: state.sprite_sheets[0].clone(),
-        sheet_position: cgmath::Vector2::new(0, 0),
+    let minotaur = {
+        let position_component = component::PositionComponent {
+            position: cgmath::Vector2::new(200., 100.),
+            scale: 64.,
+            is_controllable: false,
+        };
+
+        let texture_index = 1; // warrior
+
+        let vertex_array_component = component::VertexArrayComponent::textured_quad(texture_index);
+        let sprite_animation = animation::SpriteAnimation {
+            animation_index: 0,
+            sprite_count: 10,
+            start_index: 0,
+            per_sprite_duration: Duration::new(0, 125000000),
+            current_elapsed_time: Duration::new(0, 0),
+        };
+
+        let sheet_position_component = sprite::SheetPositionComponent {
+            sprite_sheet: state.sprite_sheets[texture_index as usize].clone(),
+            sheet_position: cgmath::Vector2::new(0, 0),
+        };
+
+        state.add_entity(
+            Some(position_component),
+            Some(vertex_array_component),
+            Some(sprite_animation),
+            Some(sheet_position_component),
+        )
     };
 
-    let character = state.add_entity(
-        Some(position_component),
-        Some(vertex_array_component),
-        Some(sprite_animation),
-        Some(sheet_position_component),
-    );
+    debug!("{:?}", state.vertex_array_components);
 
     let _ = event_loop.run(move |event, control_flow| {
         {

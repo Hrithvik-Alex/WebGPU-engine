@@ -7,6 +7,7 @@ use crate::model;
 use crate::model::Vertex;
 use crate::texture;
 
+use log::debug;
 use wgpu::util::DeviceExt;
 
 pub struct RenderSystem {
@@ -89,12 +90,9 @@ impl RenderSystem {
                     source: wgpu::ShaderSource::Wgsl(include_str!("shader.wgsl").into()),
                 });
 
-        let mut bind_group_layouts: Vec<&wgpu::BindGroupLayout> = textures
-            .iter()
-            .map(|texture| &texture.bind_group_layout)
-            .collect();
+        let mut bind_group_layouts: Vec<&wgpu::BindGroupLayout> = vec![&uniform_bind_group_layout];
 
-        bind_group_layouts.push(&uniform_bind_group_layout);
+        bind_group_layouts.extend(textures.iter().map(|texture| &texture.bind_group_layout));
 
         let render_pipeline_layout =
             context
@@ -172,7 +170,7 @@ impl RenderSystem {
         // let mut all_vertices: Vec<ModelVertex2d> = vec![];
         // let mut all_indices: Vec<u32> = vec![];
 
-        let (all_vertices, all_indices) = positions
+        let (all_vertices, all_indices, _) = positions
             .iter()
             .zip(vertex_arrays.iter())
             .filter_map(|((_, opt1), (_, opt2))| {
@@ -180,8 +178,8 @@ impl RenderSystem {
                     .and_then(|v1| opt2.as_ref().map(|v2| (v1, v2)))
             })
             .fold(
-                (Vec::new(), Vec::new()),
-                |(mut vertices, mut indices), (pos, vertex_array)| {
+                (Vec::new(), Vec::new(), 0),
+                |(mut vertices, mut indices, i), (pos, vertex_array)| {
                     vertices.extend(
                         vertex_array
                             .vertices
@@ -191,10 +189,11 @@ impl RenderSystem {
                                 position: ((vertex_pos * pos.scale) + pos.position).into(),
                                 tex_coords: tex_coord.into(),
                                 normal: [0.0, 0.0, 0.0],
+                                texture: vertex_array.texture_index,
                             }),
                     );
-                    indices.extend_from_slice(&vertex_array.indices);
-                    (vertices, indices)
+                    indices.extend(vertex_array.indices.iter().map(|index| 4 * i + index));
+                    (vertices, indices, i + 1)
                 },
             );
         // for i in 0..positions.len() {
@@ -214,6 +213,8 @@ impl RenderSystem {
         //     all_indices.extend_from_slice(&vertex_array.indices);
         // }
 
+        // debug!("{:?}", all_vertices);
+        // debug!("{:?}", all_indices);
         let vertex_buffer = context
             .device
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -260,12 +261,12 @@ impl RenderSystem {
                 occlusion_query_set: None,
                 timestamp_writes: None,
             });
-
             render_pass.set_pipeline(&self.render_pipeline);
+
+            render_pass.set_bind_group(0, &self.uniform_bind_group, &[]);
             textures.iter().enumerate().for_each(|(index, texture)| {
-                render_pass.set_bind_group(index as u32, &texture.bind_group, &[]);
+                render_pass.set_bind_group(index as u32 + 1, &texture.bind_group, &[]);
             });
-            render_pass.set_bind_group(textures.len() as u32, &self.uniform_bind_group, &[]);
             render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
             render_pass.set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint32); // 1.
             render_pass.draw_indexed(0..all_indices.len() as u32, 0, 0..1);
