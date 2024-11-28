@@ -65,6 +65,7 @@ impl VertexArrayComponent {
 pub struct PositionComponent {
     pub position: cgmath::Vector2<f32>,
     pub scale: f32,
+    pub is_controllable: bool,
 }
 
 impl Component for PositionComponent {

@@ -1,4 +1,7 @@
-use crate::state;
+use crate::{
+    component::{self, PositionComponent},
+    state,
+};
 
 use std::time::{Duration, Instant};
 
@@ -62,12 +65,22 @@ impl InputHandler {
         }
     }
 
-    pub fn update_state(&mut self, state: &mut state::State, delta_time: Duration) {
+    pub fn update_state(
+        &self,
+        position_components: &mut component::EntityMap<PositionComponent>,
+        delta_time: Duration,
+    ) {
         let mut update_position = |x: f32, y: f32| {
-            let position = state.sprite.get_position();
             let delta =
                 cgmath::Vector2::new(x, y) * Self::MOVEMENT_SPEED * delta_time.as_secs_f32();
-            state.sprite.update_position(position + delta)
+            position_components.iter_mut().for_each(|(_, position)| {
+                if position.is_controllable {
+                    position.position += delta;
+                }
+            });
+            // let position = state.sprite.get_position();
+
+            // state.sprite.update_position(position + delta)
         };
         if self.up_pressed {
             update_position(0., 1.)

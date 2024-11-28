@@ -68,8 +68,10 @@ pub async fn run() {
     let mut seconds_elapsed: u64 = 0;
     let mut last_frame_time: Duration = Duration::new(0, 0);
 
+    let textures = state.textures();
+
     let render_system = render_system::RenderSystem::new(
-        textures,
+        &textures,
         &state.context,
         &state.world_uniform,
         &state.camera,
@@ -93,7 +95,7 @@ pub async fn run() {
                 delta_time,
             );
 
-            input_handler.update_state(&mut state, delta_time);
+            input_handler.update_state(&mut state.position_components, delta_time);
             sprite::SpriteSheetSystem::update(
                 &mut state.vertex_array_components,
                 &state.sheet_position_components,
@@ -123,7 +125,13 @@ pub async fn run() {
 
                             WindowEvent::RedrawRequested => {
                                 state.update();
-                                match state.render() {
+                                let render_result = render_system.render(
+                                    &state.position_components,
+                                    &state.vertex_array_components,
+                                    &textures,
+                                    &state.context,
+                                );
+                                match render_result {
                                     Ok(_) => {}
                                     // Reconfigure the surface if lost
                                     Err(

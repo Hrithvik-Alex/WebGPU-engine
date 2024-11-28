@@ -26,7 +26,7 @@ pub struct RenderSystem {
 
 impl RenderSystem {
     pub fn new(
-        textures: Vec<Arc<texture::Texture>>,
+        textures: &Vec<Arc<texture::Texture>>,
         context: &context::Context,
         world_uniform: &component::WorldUniform,
         camera: &camera::OrthographicCamera,
@@ -172,7 +172,7 @@ impl RenderSystem {
         &self,
         positions: &component::EntityMap<component::PositionComponent>,
         vertex_arrays: &component::EntityMap<component::VertexArrayComponent>,
-        textures: Vec<&texture::Texture>,
+        textures: &Vec<Arc<texture::Texture>>,
         context: &context::Context,
     ) -> Result<(), wgpu::SurfaceError> {
         // let mut all_vertices: Vec<ModelVertex2d> = vec![];
@@ -261,7 +261,7 @@ impl RenderSystem {
             });
 
             render_pass.set_pipeline(&self.render_pipeline);
-            textures.iter().enumerate().for_each(|(index, &texture)| {
+            textures.iter().enumerate().for_each(|(index, texture)| {
                 render_pass.set_bind_group(index as u32, &texture.bind_group, &[]);
             });
             render_pass.set_bind_group(textures.len() as u32, &self.uniform_bind_group, &[]);

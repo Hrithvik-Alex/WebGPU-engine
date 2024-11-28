@@ -32,7 +32,7 @@ pub struct State<'a> {
     sprite_sheets: Vec<Arc<sprite::SpriteSheet>>,
     // sprite_sheet: Arc<sprite::SpriteSheet>,
     pub position_components: component::EntityMap<component::PositionComponent>,
-    render_system: render_system::RenderSystem,
+    // render_system: render_system::RenderSystem,
     sprite: sprite::Sprite,
     pub camera: camera::OrthographicCamera,
     pub world_uniform: component::WorldUniform,
@@ -61,10 +61,10 @@ impl<'a> State<'a> {
 
         let sprite_sheets = vec![hero_sprite_sheet.clone()];
 
-        let textures = sprite_sheets
-            .iter()
-            .map(|sprite_sheet| sprite_sheet.texture())
-            .collect::<Vec<Arc<texture::Texture>>>();
+        // let textures = sprite_sheets
+        //     .iter()
+        //     .map(|sprite_sheet| sprite_sheet.texture())
+        //     .collect::<Vec<Arc<texture::Texture>>>();
 
         let camera = camera::OrthographicCamera::new(
             size.width,
@@ -80,6 +80,7 @@ impl<'a> State<'a> {
         let sprite_position_comp = component::PositionComponent {
             position: cgmath::Vector2::new(50., 100.),
             scale: 64.,
+            is_controllable: true,
         };
         let sprite = sprite::Sprite::new(
             hero_sprite_sheet.clone(),
@@ -123,8 +124,8 @@ impl<'a> State<'a> {
         debug!("bruh:{:?}", size);
 
         // let projection_buffer = projection.get_buffer(&context.device);
-        let render_system =
-            render_system::RenderSystem::new(textures, &context, &world_uniform, &camera);
+        // let render_system =
+        //     render_system::RenderSystem::new(textures, &context, &world_uniform, &camera);
 
         let entities = position_components
             .keys()
@@ -138,7 +139,7 @@ impl<'a> State<'a> {
             // render_pipeline,
             // index_buffer,
             // num_indices,
-            render_system,
+            // render_system,
             position_components,
             sprite_sheets,
             sprite,
@@ -168,6 +169,13 @@ impl<'a> State<'a> {
         }
     }
 
+    pub fn textures(&self) -> Vec<Arc<texture::Texture>> {
+        self.sprite_sheets
+            .iter()
+            .map(|sprite_sheet| sprite_sheet.texture())
+            .collect::<Vec<Arc<texture::Texture>>>()
+    }
+
     pub fn set_position(&mut self, position: PhysicalPosition<f64>) {
         // self.position = position
     }
@@ -177,68 +185,68 @@ impl<'a> State<'a> {
 
     pub fn update(&mut self) {}
 
-    pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
-        let textures = self
-            .sprite_sheets
-            .iter()
-            .map(|sprite_sheet| sprite_sheet.texture())
-            .collect::<Vec<Arc<texture::Texture>>>();
+    // pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
+    // let textures = self
+    //     .sprite_sheets
+    //     .iter()
+    //     .map(|sprite_sheet| sprite_sheet.texture())
+    //     .collect::<Vec<Arc<texture::Texture>>>();
 
-        // self.sprite_sheets[0].adjust_tex_coords(&mut self.quad, self.sprite.sheet_position);
-        self.render_system.render(
-            &self.position_components,
-            &self.vertex_array_components,
-            textures,
-            &self.context,
-        )
-        //             label: Some("Vertex Buffer"),
-        //             contents: bytemuck::cast_slice(&self.sprite.vertices()),
-        //             usage: wgpu::BufferUsages::VERTEX,
-        //         });
+    // self.sprite_sheets[0].adjust_tex_coords(&mut self.quad, self.sprite.sheet_position);
+    // self.render_system.render(
+    //     &self.position_components,
+    //     &self.vertex_array_components,
+    //     textures,
+    //     &self.context,
+    // )
+    //             label: Some("Vertex Buffer"),
+    //             contents: bytemuck::cast_slice(&self.sprite.vertices()),
+    //             usage: wgpu::BufferUsages::VERTEX,
+    //         });
 
-        // let output = self.context.surface.get_current_texture()?;
-        // let view = output
-        //     .texture
-        //     .create_view(&wgpu::TextureViewDescriptor::default());
-        // let mut encoder =
-        //     self.context
-        //         .device
-        //         .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-        //             label: Some("Render Encoder"),
-        //         });
+    // let output = self.context.surface.get_current_texture()?;
+    // let view = output
+    //     .texture
+    //     .create_view(&wgpu::TextureViewDescriptor::default());
+    // let mut encoder =
+    //     self.context
+    //         .device
+    //         .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+    //             label: Some("Render Encoder"),
+    //         });
 
-        // {
-        //     let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-        //         label: Some("Render Pass"),
-        //         color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-        //             view: &view,
-        //             resolve_target: None,
-        //             ops: wgpu::Operations {
-        //                 load: wgpu::LoadOp::Clear(wgpu::Color {
-        //                     r: self.position.x / f64::from(self.size.width),
-        //                     g: self.position.y / f64::from(self.size.height),
-        //                     b: 0.7,
-        //                     a: 1.0,
-        //                 }),
-        //                 store: wgpu::StoreOp::Store,
-        //             },
-        //         })],
-        //         depth_stencil_attachment: None,
-        //         occlusion_query_set: None,
-        //         timestamp_writes: None,
-        //     });
+    // {
+    //     let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+    //         label: Some("Render Pass"),
+    //         color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+    //             view: &view,
+    //             resolve_target: None,
+    //             ops: wgpu::Operations {
+    //                 load: wgpu::LoadOp::Clear(wgpu::Color {
+    //                     r: self.position.x / f64::from(self.size.width),
+    //                     g: self.position.y / f64::from(self.size.height),
+    //                     b: 0.7,
+    //                     a: 1.0,
+    //                 }),
+    //                 store: wgpu::StoreOp::Store,
+    //             },
+    //         })],
+    //         depth_stencil_attachment: None,
+    //         occlusion_query_set: None,
+    //         timestamp_writes: None,
+    //     });
 
-        //     render_pass.set_pipeline(&self.render_pipeline);
-        //     render_pass.set_bind_group(0, self.sprite.bind_group(), &[]);
-        //     render_pass.set_bind_group(1, &self.uniform_bind_group, &[]);
-        //     render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
-        //     render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16); // 1.
-        //     render_pass.draw_indexed(0..self.num_indices, 0, 0..1);
-        // }
+    //     render_pass.set_pipeline(&self.render_pipeline);
+    //     render_pass.set_bind_group(0, self.sprite.bind_group(), &[]);
+    //     render_pass.set_bind_group(1, &self.uniform_bind_group, &[]);
+    //     render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
+    //     render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16); // 1.
+    //     render_pass.draw_indexed(0..self.num_indices, 0, 0..1);
+    // }
 
-        // self.context.queue.submit(std::iter::once(encoder.finish()));
-        // output.present();
+    // self.context.queue.submit(std::iter::once(encoder.finish()));
+    // output.present();
 
-        // Ok(())
-    }
+    // Ok(())
+    // }
 }
