@@ -1,9 +1,6 @@
 use std::time::Duration;
 
-use crate::{
-    component::{self, EntityMap},
-    sprite::SheetPositionComponent,
-};
+use crate::{component, sprite::SheetPositionComponent};
 
 pub struct SpriteAnimation {
     pub animation_index: u32,
@@ -43,14 +40,17 @@ impl AnimationSystem {
     ) {
         sprite_animation_components
             .iter_mut()
-            .for_each(|(entity, sprite_animation)| {
-                sprite_animation.update(delta_time);
-                let sheet_position_component = sheet_position_components.get_mut(entity).expect(
-                    "sheet component must exist for corresponding sprite animation for entity",
-                );
-                sheet_position_component.sheet_position = sheet_position_component
-                    .sprite_sheet
-                    .get_position_by_index(sprite_animation.get_sheet_index());
+            .zip(sheet_position_components.iter_mut())
+            .for_each(|((_, sprite_animation), (_, sheet_position_component))| {
+                if let (Some(sprite_animation), Some(sheet_position_component)) =
+                    (sprite_animation, sheet_position_component)
+                {
+                    sprite_animation.update(delta_time);
+
+                    sheet_position_component.sheet_position = sheet_position_component
+                        .sprite_sheet
+                        .get_position_by_index(sprite_animation.get_sheet_index());
+                }
             });
     }
 }

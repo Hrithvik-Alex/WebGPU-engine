@@ -1,19 +1,13 @@
-use std::iter;
 use std::sync::Arc;
 
 use crate::camera;
 use crate::component;
-use crate::component::WorldUniform;
 use crate::context;
 use crate::model;
-use crate::model::ModelVertex2d;
 use crate::model::Vertex;
 use crate::texture;
 
-use log::debug;
-use slotmap::DenseSlotMap;
 use wgpu::util::DeviceExt;
-use winit::dpi::PhysicalSize;
 
 pub struct RenderSystem {
     // positions: Vec<&'a component::PositionComponent>,
@@ -178,24 +172,31 @@ impl RenderSystem {
         // let mut all_vertices: Vec<ModelVertex2d> = vec![];
         // let mut all_indices: Vec<u32> = vec![];
 
-        let (all_vertices, all_indices) = positions.iter().zip(vertex_arrays.iter()).fold(
-            (Vec::new(), Vec::new()),
-            |(mut vertices, mut indices), ((_, pos), (_, vertex_array))| {
-                vertices.extend(
-                    vertex_array
-                        .vertices
-                        .iter()
-                        .zip(vertex_array.tex_coords.iter())
-                        .map(|(vertex_pos, &tex_coord)| model::ModelVertex2d {
-                            position: ((vertex_pos * pos.scale) + pos.position).into(),
-                            tex_coords: tex_coord.into(),
-                            normal: [0.0, 0.0, 0.0],
-                        }),
-                );
-                indices.extend_from_slice(&vertex_array.indices);
-                (vertices, indices)
-            },
-        );
+        let (all_vertices, all_indices) = positions
+            .iter()
+            .zip(vertex_arrays.iter())
+            .filter_map(|((_, opt1), (_, opt2))| {
+                opt1.as_ref()
+                    .and_then(|v1| opt2.as_ref().map(|v2| (v1, v2)))
+            })
+            .fold(
+                (Vec::new(), Vec::new()),
+                |(mut vertices, mut indices), (pos, vertex_array)| {
+                    vertices.extend(
+                        vertex_array
+                            .vertices
+                            .iter()
+                            .zip(vertex_array.tex_coords.iter())
+                            .map(|(vertex_pos, &tex_coord)| model::ModelVertex2d {
+                                position: ((vertex_pos * pos.scale) + pos.position).into(),
+                                tex_coords: tex_coord.into(),
+                                normal: [0.0, 0.0, 0.0],
+                            }),
+                    );
+                    indices.extend_from_slice(&vertex_array.indices);
+                    (vertices, indices)
+                },
+            );
         // for i in 0..positions.len() {
         //     let vertex_array = vertex_arrays[i];
         //     let pos = positions[i];

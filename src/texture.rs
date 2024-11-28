@@ -1,12 +1,11 @@
-use crate::{component, context};
 use anyhow::*;
 use image::GenericImageView;
 
 pub struct Texture {
     #[allow(unused)]
     pub texture: wgpu::Texture,
-    pub view: wgpu::TextureView,
-    pub sampler: wgpu::Sampler,
+    // pub view: wgpu::TextureView,
+    // pub sampler: wgpu::Sampler,
     pub dimensions: (u32, u32),
     pub bind_group: wgpu::BindGroup,
     pub bind_group_layout: wgpu::BindGroupLayout,
@@ -134,8 +133,8 @@ impl Texture {
 
         Ok(Self {
             texture,
-            view,
-            sampler,
+            // view,
+            // sampler,
             dimensions,
             bind_group,
             bind_group_layout,

@@ -1,13 +1,11 @@
-use crate::{
-    component::{self, PositionComponent},
-    state,
-};
+use crate::component::{self, PositionComponent};
 
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use winit::{
+    dpi::PhysicalPosition,
     event::*,
-    keyboard::{Key, KeyCode, PhysicalKey},
+    keyboard::{KeyCode, PhysicalKey},
 };
 
 pub struct InputHandler {
@@ -15,6 +13,7 @@ pub struct InputHandler {
     down_pressed: bool,
     left_pressed: bool,
     right_pressed: bool,
+    mouse_position: PhysicalPosition<f64>,
 }
 
 impl InputHandler {
@@ -26,6 +25,7 @@ impl InputHandler {
             down_pressed: false,
             left_pressed: false,
             right_pressed: false,
+            mouse_position: PhysicalPosition::new(0., 0.),
         }
     }
     pub fn handle_key_state(&mut self, event: &KeyEvent) {
@@ -73,11 +73,14 @@ impl InputHandler {
         let mut update_position = |x: f32, y: f32| {
             let delta =
                 cgmath::Vector2::new(x, y) * Self::MOVEMENT_SPEED * delta_time.as_secs_f32();
-            position_components.iter_mut().for_each(|(_, position)| {
-                if position.is_controllable {
-                    position.position += delta;
-                }
-            });
+            position_components
+                .iter_mut()
+                .for_each(|(_, position_component)| match position_component {
+                    Some(position_component) if position_component.is_controllable => {
+                        position_component.position += delta;
+                    }
+                    _ => (),
+                });
             // let position = state.sprite.get_position();
 
             // state.sprite.update_position(position + delta)
@@ -94,6 +97,10 @@ impl InputHandler {
         if self.right_pressed {
             update_position(1., 0.)
         }
+    }
+
+    pub fn set_position(&mut self, position: PhysicalPosition<f64>) {
+        self.mouse_position = position
     }
 }
 

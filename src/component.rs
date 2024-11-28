@@ -1,13 +1,9 @@
-use std::sync::Arc;
-
 use cgmath::SquareMatrix;
 use slotmap::DenseSlotMap;
 use wgpu::util::DeviceExt;
 
-use crate::{sprite::SpriteSheet, texture};
-
 pub type Entity = slotmap::DefaultKey;
-pub type EntityMap<T> = DenseSlotMap<Entity, T>;
+pub type EntityMap<T> = DenseSlotMap<Entity, Option<T>>;
 
 pub trait Component {
     fn name(&self) -> String;

@@ -2,7 +2,6 @@ mod animation;
 mod camera;
 mod component;
 mod context;
-mod entity;
 mod input;
 mod model;
 mod render_system;
@@ -10,20 +9,14 @@ mod sprite;
 mod state;
 mod texture;
 
-use cgmath::{SquareMatrix, Vector2};
 use log::debug;
-use model::Vertex;
 use std::time::{Duration, Instant};
-use wgpu::util::DeviceExt;
 use winit::{
-    dpi::PhysicalPosition,
     event::*,
     event_loop::EventLoop,
     keyboard::{KeyCode, PhysicalKey},
     window::WindowBuilder,
 };
-
-use winit::window::Window;
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
@@ -77,6 +70,33 @@ pub async fn run() {
         &state.camera,
     );
 
+    // entity for player
+    let position_component = component::PositionComponent {
+        position: cgmath::Vector2::new(50., 100.),
+        scale: 64.,
+        is_controllable: true,
+    };
+    let vertex_array_component = component::VertexArrayComponent::quad();
+    let sprite_animation = animation::SpriteAnimation {
+        animation_index: 0,
+        sprite_count: 10,
+        start_index: 0,
+        per_sprite_duration: Duration::new(0, 125000000),
+        current_elapsed_time: Duration::new(0, 0),
+    };
+
+    let sheet_position_component = sprite::SheetPositionComponent {
+        sprite_sheet: state.sprite_sheets[0].clone(),
+        sheet_position: cgmath::Vector2::new(0, 0),
+    };
+
+    let character = state.add_entity(
+        Some(position_component),
+        Some(vertex_array_component),
+        Some(sprite_animation),
+        Some(sheet_position_component),
+    );
+
     let _ = event_loop.run(move |event, control_flow| {
         {
             frames += 1;
@@ -109,54 +129,51 @@ pub async fn run() {
                     ref event,
                     window_id,
                 } if window_id == state.window.id() => {
-                    if !state.input(event) {
-                        match event {
-                            WindowEvent::CloseRequested
-                            | WindowEvent::KeyboardInput {
-                                event:
-                                    KeyEvent {
-                                        state: ElementState::Pressed,
-                                        physical_key: PhysicalKey::Code(KeyCode::Escape),
-                                        ..
-                                    },
-                                ..
-                            } => control_flow.exit(),
-                            WindowEvent::Resized(physical_size) => state.resize(*physical_size),
+                    match event {
+                        WindowEvent::CloseRequested
+                        | WindowEvent::KeyboardInput {
+                            event:
+                                KeyEvent {
+                                    state: ElementState::Pressed,
+                                    physical_key: PhysicalKey::Code(KeyCode::Escape),
+                                    ..
+                                },
+                            ..
+                        } => control_flow.exit(),
+                        WindowEvent::Resized(physical_size) => state.resize(*physical_size),
 
-                            WindowEvent::RedrawRequested => {
-                                state.update();
-                                let render_result = render_system.render(
-                                    &state.position_components,
-                                    &state.vertex_array_components,
-                                    &textures,
-                                    &state.context,
-                                );
-                                match render_result {
-                                    Ok(_) => {}
-                                    // Reconfigure the surface if lost
-                                    Err(
-                                        wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated,
-                                    ) => state.resize(state.size),
-                                    // The system is out of memory, we should probably quit
-                                    Err(wgpu::SurfaceError::OutOfMemory) => control_flow.exit(),
-                                    // All other errors (Outdated, Timeout) should be resolved by the next frame
-                                    Err(e) => eprintln!("{:?}", e),
+                        WindowEvent::RedrawRequested => {
+                            let render_result = render_system.render(
+                                &state.position_components,
+                                &state.vertex_array_components,
+                                &textures,
+                                &state.context,
+                            );
+                            match render_result {
+                                Ok(_) => {}
+                                // Reconfigure the surface if lost
+                                Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {
+                                    state.resize(state.size)
                                 }
+                                // The system is out of memory, we should probably quit
+                                Err(wgpu::SurfaceError::OutOfMemory) => control_flow.exit(),
+                                // All other errors (Outdated, Timeout) should be resolved by the next frame
+                                Err(e) => eprintln!("{:?}", e),
                             }
-
-                            WindowEvent::CursorMoved {
-                                device_id: _,
-                                position,
-                            } => state.set_position(*position),
-                            // TODO: refactor input controller
-                            WindowEvent::KeyboardInput {
-                                device_id: _,
-                                event,
-                                is_synthetic: _,
-                            } => input_handler.handle_key_state(event),
-
-                            _ => {}
                         }
+
+                        WindowEvent::CursorMoved {
+                            device_id: _,
+                            position,
+                        } => input_handler.set_position(*position),
+                        // TODO: refactor input controller
+                        WindowEvent::KeyboardInput {
+                            device_id: _,
+                            event,
+                            is_synthetic: _,
+                        } => input_handler.handle_key_state(event),
+
+                        _ => {}
                     }
                 }
 
