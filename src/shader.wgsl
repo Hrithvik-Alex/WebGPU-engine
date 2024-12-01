@@ -44,11 +44,15 @@ fn vs_main(
 @group(1) @binding(0)
 var t_character: texture_2d<f32>;
 @group(1) @binding(1)
+var n_character: texture_2d<f32>;
+@group(1) @binding(2)
 var s_character: sampler;
 
 @group(2) @binding(0)
 var t_minotaur: texture_2d<f32>;
 @group(2) @binding(1)
+var n_minotaur: texture_2d<f32>;
+@group(2) @binding(2)
 var s_minotaur: sampler;
 
 @fragment

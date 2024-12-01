@@ -145,22 +145,23 @@ pub struct SpriteSheet {
 impl SpriteSheet {
     pub fn new(
         context: &context::Context,
-        image_path: String,
+        texture_path: String,
+        normal_path: Option<String>,
         sprite_width: u32,
         sprite_height: u32,
         manual_premultiply: bool,
     ) -> Self {
-        let bytes = std::fs::read(image_path.clone()).expect("Failed to read sprite sheet image");
         let texture = Arc::new(
-            crate::texture::Texture::from_bytes(
+            crate::texture::Texture::from_path(
                 &context.device,
                 &context.queue,
-                &bytes,
-                &image_path,
+                texture_path,
+                normal_path,
                 manual_premultiply,
             )
             .unwrap(),
         );
+
         let dimensions = texture.dimensions;
 
         debug!("{:?}", dimensions);

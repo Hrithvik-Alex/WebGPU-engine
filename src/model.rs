@@ -9,13 +9,13 @@ pub trait Vertex {
 pub struct ModelVertex2d {
     pub position: [f32; 2],
     pub tex_coords: [f32; 2],
-    pub normal: [f32; 3],
+    pub normal_coords: [f32; 2],
     pub texture: u32,
 }
 
 impl Vertex for ModelVertex2d {
     const ATTRIBS: [wgpu::VertexAttribute; 4] =
-        wgpu::vertex_attr_array![0 => Float32x2, 1 => Float32x2, 2 => Float32x3, 3 => Uint32];
+        wgpu::vertex_attr_array![0 => Float32x2, 1 => Float32x2, 2 => Float32x2, 3 => Uint32];
 
     fn desc() -> wgpu::VertexBufferLayout<'static> {
         use std::mem;

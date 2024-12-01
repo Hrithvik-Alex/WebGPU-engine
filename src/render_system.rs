@@ -188,7 +188,7 @@ impl RenderSystem {
                             .map(|(vertex_pos, &tex_coord)| model::ModelVertex2d {
                                 position: ((vertex_pos * pos.scale) + pos.position).into(),
                                 tex_coords: tex_coord.into(),
-                                normal: [0.0, 0.0, 0.0],
+                                normal_coords: tex_coord.into(),
                                 texture: vertex_array.texture_index,
                             }),
                     );
@@ -196,23 +196,6 @@ impl RenderSystem {
                     (vertices, indices, i + 1)
                 },
             );
-        // for i in 0..positions.len() {
-        //     let vertex_array = vertex_arrays[i];
-        //     let pos = positions[i];
-        //     let model_vertices = vertex_array
-        //         .vertices
-        //         .iter()
-        //         .zip(vertex_array.tex_coords.iter())
-        //         .map(|(vertex_pos, &tex_coord)| model::ModelVertex2d {
-        //             position: ((vertex_pos * pos.scale) + pos.position).into(),
-        //             tex_coords: tex_coord.into(),
-        //             normal: [0.0, 0.0, 0.0],
-        //         });
-
-        //     all_vertices.extend(model_vertices);
-        //     all_indices.extend_from_slice(&vertex_array.indices);
-        // }
-
         // debug!("{:?}", all_vertices);
         // debug!("{:?}", all_indices);
         let vertex_buffer = context

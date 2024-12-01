@@ -35,6 +35,7 @@ impl<'a> State<'a> {
         let hero_sprite_sheet = Arc::new(sprite::SpriteSheet::new(
             &context,
             "./assets/warrior_spritesheet_calciumtrice.png".to_string(),
+            Some("./assets/minotaur_spritesheet_calciumtrice_n.png".to_string()),
             32,
             32,
             true,
@@ -43,6 +44,7 @@ impl<'a> State<'a> {
         let minotaur_sprite_sheet = Arc::new(sprite::SpriteSheet::new(
             &context,
             "./assets/minotaur_spritesheet_calciumtrice.png".to_string(),
+            Some("./assets/minotaur_spritesheet_calciumtrice_n.png".to_string()),
             48,
             48,
             true,
