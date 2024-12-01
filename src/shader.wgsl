@@ -1,13 +1,16 @@
 struct VertexInput {
     @location(0) position: vec2<f32>,
     @location(1) tex_coords: vec2<f32>,
+    @location(2) normal_coords: vec2<f32>,
     @location(3) texture: u32,
 };
 
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
     @location(0) tex_coords: vec2<f32>,
-    @location(1) texture: u32,
+    @location(1) normal_coords: vec2<f32>,
+    @location(2) texture: u32,
+
 };
 
 struct CameraUniform {
@@ -36,6 +39,7 @@ fn vs_main(
 ) -> VertexOutput {
     var out: VertexOutput;
     out.tex_coords = model.tex_coords;
+    out.normal_coords = model.normal_coords;
     out.clip_position =  camera.view_proj * /*camera.view *  */  (world.matrix * vec4<f32>(model.position, 1.0, 1.0));
     out.texture = model.texture;
     return out;
@@ -57,18 +61,33 @@ var s_minotaur: sampler;
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
+    var ambient_light_intensity = 0.2;
+    var light_dir = vec4<f32>(0.0, 1.0, 0.0, 0.0);
+    var light_strength = 2.;
+
+    var color: vec4<f32>;
+    var normal: vec4<f32>;
     switch in.texture {
         case 0u: {
-            return textureSample(t_character, s_character, in.tex_coords);
+            color = textureSample(t_character, s_character, in.tex_coords);
+            normal =textureSample(n_character, s_character, in.tex_coords); 
         }
 
         case 1u: {
-            return textureSample(t_minotaur, s_character, in.tex_coords);
+            color = textureSample(t_minotaur, s_character, in.tex_coords);
+            normal = textureSample(n_minotaur, s_character, in.tex_coords);
         }
         default: {
-            return vec4<f32>(1.0, 0.0, 0.0, 1.0);
+            color = vec4<f32>(1.0, 0.0, 0.0, 1.0);
         }
     }
+
+
+    var light_mag = dot(normal, light_dir);
+    var diff_light = light_strength * max(light_mag, 0.);
+    var light = diff_light + ambient_light_intensity;
+
+    return color * light;
 }
  
  
