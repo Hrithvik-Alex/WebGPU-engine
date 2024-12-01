@@ -1,5 +1,6 @@
 use anyhow::*;
 use image::GenericImageView;
+use log::debug;
 use wgpu::BindGroupLayoutEntry;
 
 pub struct Texture {
@@ -66,6 +67,7 @@ impl Texture {
         img: &image::DynamicImage,
         label: Option<&str>,
         manual_premultiply: bool,
+        bind_group_layout_index: u32,
     ) -> (
         wgpu::Texture,
         wgpu::TextureView,
@@ -126,7 +128,7 @@ impl Texture {
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
 
         let layout_entry = wgpu::BindGroupLayoutEntry {
-            binding: 0,
+            binding: bind_group_layout_index,
             visibility: wgpu::ShaderStages::FRAGMENT,
             ty: wgpu::BindingType::Texture {
                 multisampled: false,
@@ -135,10 +137,10 @@ impl Texture {
             },
             count: None,
         };
-        let layout = wgpu::BindGroupEntry {
-            binding: 0,
-            resource: wgpu::BindingResource::TextureView(&view),
-        };
+        // let layout = wgpu::BindGroupEntry {
+        //     binding: 0,
+        //     resource: wgpu::BindingResource::TextureView(&view),
+        // };
 
         (texture, view, layout_entry, dimensions)
     }
@@ -205,17 +207,25 @@ impl Texture {
         // let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
 
         let (texture, texture_view, texture_bind_group_layout, dimensions) =
-            Self::get_texture_from_img(device, queue, texture_img, label, manual_premultiply);
+            Self::get_texture_from_img(device, queue, texture_img, label, manual_premultiply, 0);
         let (normal_tex, normal_view, normal_bind_group_layout, normal_dimensions) =
             match normal_img {
                 Some(normal_img) => {
                     let (t, v, b, d) =
-                        Self::get_texture_from_img(device, queue, normal_img, label, false);
+                        Self::get_texture_from_img(device, queue, normal_img, label, false, 1);
                     (Some(t), Some(v), Some(b), Some(d))
                 }
                 None => (None, None, None, None),
             };
-        normal_dimensions.map(|normal_dimensions| assert!(dimensions == normal_dimensions));
+        normal_dimensions.map(|normal_dimensions| {
+            if dimensions != normal_dimensions {
+                debug!("{:?}", label);
+                debug!("{:?}", dimensions);
+                debug!("{:?}", normal_dimensions);
+
+                assert!(dimensions == normal_dimensions)
+            }
+        });
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             address_mode_u: wgpu::AddressMode::ClampToEdge,
             address_mode_v: wgpu::AddressMode::ClampToEdge,
