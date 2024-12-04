@@ -56,11 +56,6 @@ pub async fn run() {
     let mut state = state::State::new(&window).await;
     let mut input_handler = input::InputHandler::new();
 
-    let start_time = Instant::now();
-    let mut frames = 0;
-    let mut seconds_elapsed: u64 = 0;
-    let mut last_frame_time: Duration = Duration::new(0, 0);
-
     let textures = state.textures();
 
     let render_system = render_system::RenderSystem::new(
@@ -81,24 +76,55 @@ pub async fn run() {
         let texture_index = 0; // warrior
 
         let vertex_array_component = component::VertexArrayComponent::textured_quad(texture_index);
-        let sprite_animation = animation::SpriteAnimation {
+
+        let sprite_animation_idle = animation::SpriteAnimation {
             animation_index: 0,
             sprite_count: 10,
             start_index: 0,
             per_sprite_duration: Duration::new(0, 125000000),
             current_elapsed_time: Duration::new(0, 0),
         };
+        let sprite_animation_run = animation::SpriteAnimation {
+            animation_index: 0,
+            sprite_count: 10,
+            start_index: 20,
+            per_sprite_duration: Duration::new(0, 125000000),
+            current_elapsed_time: Duration::new(0, 0),
+        };
+        let sprite_animation_attack = animation::SpriteAnimation {
+            animation_index: 0,
+            sprite_count: 10,
+            start_index: 30,
+            per_sprite_duration: Duration::new(0, 125000000),
+            current_elapsed_time: Duration::new(0, 0),
+        };
+
+        let mut sprite_animation_controller = animation::SpriteAnimationControllerComponent::new();
+        sprite_animation_controller
+            .animation_map
+            .insert(component::CharacterState::IDLE, sprite_animation_idle);
+        sprite_animation_controller
+            .animation_map
+            .insert(component::CharacterState::MOVE, sprite_animation_run);
+        sprite_animation_controller
+            .animation_map
+            .insert(component::CharacterState::ATTACK, sprite_animation_attack);
 
         let sheet_position_component = sprite::SheetPositionComponent {
             sprite_sheet: state.sprite_sheets[texture_index as usize].clone(),
             sheet_position: cgmath::Vector2::new(0, 0),
         };
 
+        let character_state_component = component::CharacterStateComponent {
+            character_state: component::CharacterState::IDLE,
+        };
+
         state.add_entity(
             Some(position_component),
             Some(vertex_array_component),
-            Some(sprite_animation),
+            Some(sprite_animation_controller),
             Some(sheet_position_component),
+            Some(character_state_component),
         )
     };
 
@@ -112,29 +138,65 @@ pub async fn run() {
         let texture_index = 1; // warrior
 
         let vertex_array_component = component::VertexArrayComponent::textured_quad(texture_index);
-        let sprite_animation = animation::SpriteAnimation {
+        let sprite_animation_idle = animation::SpriteAnimation {
             animation_index: 0,
             sprite_count: 10,
             start_index: 0,
             per_sprite_duration: Duration::new(0, 125000000),
             current_elapsed_time: Duration::new(0, 0),
         };
+        let sprite_animation_run = animation::SpriteAnimation {
+            animation_index: 0,
+            sprite_count: 10,
+            start_index: 20,
+            per_sprite_duration: Duration::new(0, 125000000),
+            current_elapsed_time: Duration::new(0, 0),
+        };
+        let sprite_animation_attack = animation::SpriteAnimation {
+            animation_index: 0,
+            sprite_count: 10,
+            start_index: 30,
+            per_sprite_duration: Duration::new(0, 125000000),
+            current_elapsed_time: Duration::new(0, 0),
+        };
+
+        let mut sprite_animation_controller = animation::SpriteAnimationControllerComponent::new();
+        sprite_animation_controller
+            .animation_map
+            .insert(component::CharacterState::IDLE, sprite_animation_idle);
+        sprite_animation_controller
+            .animation_map
+            .insert(component::CharacterState::MOVE, sprite_animation_run);
+        sprite_animation_controller
+            .animation_map
+            .insert(component::CharacterState::ATTACK, sprite_animation_attack);
 
         let sheet_position_component = sprite::SheetPositionComponent {
             sprite_sheet: state.sprite_sheets[texture_index as usize].clone(),
             sheet_position: cgmath::Vector2::new(0, 0),
         };
 
+        let character_state_component = component::CharacterStateComponent {
+            character_state: component::CharacterState::IDLE,
+        };
+
         state.add_entity(
             Some(position_component),
             Some(vertex_array_component),
-            Some(sprite_animation),
+            Some(sprite_animation_controller),
             Some(sheet_position_component),
+            Some(character_state_component),
         )
     };
 
     debug!("{:?}", state.vertex_array_components);
 
+    let start_time = Instant::now();
+    let mut frames = 0;
+    let mut seconds_elapsed: u64 = 0;
+    let mut last_frame_time: Duration = Duration::new(0, 0);
+
+    // TODO: implement FixedUpdate
     let _ = event_loop.run(move |event, control_flow| {
         {
             frames += 1;
@@ -147,17 +209,22 @@ pub async fn run() {
             }
             last_frame_time = current_time;
 
-            animation::AnimationSystem::update_animations(
-                &mut state.sprite_animation_components,
-                &mut state.sheet_position_components,
+            input_handler.update_state(
+                &mut state.position_components,
+                &mut state.character_state_components,
                 delta_time,
             );
-
-            input_handler.update_state(&mut state.position_components, delta_time);
             sprite::SpriteSheetSystem::update(
                 &mut state.vertex_array_components,
                 &state.sheet_position_components,
             );
+            animation::AnimationSystem::update_animations(
+                &mut state.sprite_animation_controller_components,
+                &mut state.sheet_position_components,
+                &state.character_state_components,
+                delta_time,
+            );
+
             // idle_anim.update(delta_time);
             // state
             //     .sprite
@@ -209,7 +276,11 @@ pub async fn run() {
                             device_id: _,
                             event,
                             is_synthetic: _,
-                        } => input_handler.handle_key_state(event),
+                        } => input_handler.handle_key_state(
+                            event,
+                            &mut state.position_components,
+                            &mut state.character_state_components,
+                        ),
 
                         _ => {}
                     }

@@ -62,15 +62,21 @@ var s_minotaur: sampler;
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     var ambient_light_intensity = 0.2;
-    var light_dir = vec4<f32>(0.0, 1.0, 0.0, 0.0);
+    var light_dir = normalize(vec4<f32>(1.0, 1.0, 0.0, 0.0));
     var light_strength = 2.;
+
+    var light1_pos = vec4<f32>(0.5,0.5,1.0,0.0);
+    var light1_color = vec4<f32>(10000.0,0.0,0.0,0.0);
+    var light1_dist = distance(light1_pos , in.clip_position);
+    var light1_dir = normalize(light1_pos - in.clip_position);
+
 
     var color: vec4<f32>;
     var normal: vec4<f32>;
     switch in.texture {
         case 0u: {
             color = textureSample(t_character, s_character, in.tex_coords);
-            normal =textureSample(n_character, s_character, in.tex_coords); 
+            normal = textureSample(n_character, s_character, in.tex_coords); 
         }
 
         case 1u: {
@@ -87,7 +93,8 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     var diff_light = light_strength * max(light_mag, 0.);
     var light = diff_light + ambient_light_intensity;
 
-    return color * light;
+    var light1_final = dot(normal, light1_dir) * light1_color / light1_dist;
+    return color  * light + light1_final;
 }
  
  

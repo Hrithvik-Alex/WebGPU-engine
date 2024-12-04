@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{collections::HashMap, time::Duration};
 
 use crate::{component, sprite::SheetPositionComponent};
 
@@ -8,12 +8,6 @@ pub struct SpriteAnimation {
     pub start_index: u32,
     pub per_sprite_duration: Duration,
     pub current_elapsed_time: Duration,
-}
-
-impl component::Component for SpriteAnimation {
-    fn name(&self) -> String {
-        "SpriteAnimation".to_string()
-    }
 }
 
 impl SpriteAnimation {
@@ -29,28 +23,65 @@ impl SpriteAnimation {
         self.start_index + self.animation_index
     }
 }
+pub struct SpriteAnimationControllerComponent {
+    pub animation_map: HashMap<component::CharacterState, SpriteAnimation>,
+}
+
+impl component::Component for SpriteAnimationControllerComponent {
+    fn name(&self) -> String {
+        "SpriteAnimationController".to_string()
+    }
+}
+
+impl SpriteAnimationControllerComponent {
+    pub fn new() -> Self {
+        Self {
+            animation_map: HashMap::new(),
+        }
+    }
+}
 
 pub struct AnimationSystem {}
 
 impl AnimationSystem {
     pub fn update_animations(
-        sprite_animation_components: &mut component::EntityMap<SpriteAnimation>,
+        sprite_animation_controller_components: &mut component::EntityMap<
+            SpriteAnimationControllerComponent,
+        >,
         sheet_position_components: &mut component::EntityMap<SheetPositionComponent>,
+        character_state_components: &component::EntityMap<component::CharacterStateComponent>,
         delta_time: Duration,
     ) {
-        sprite_animation_components
+        sprite_animation_controller_components
             .iter_mut()
             .zip(sheet_position_components.iter_mut())
-            .for_each(|((_, sprite_animation), (_, sheet_position_component))| {
-                if let (Some(sprite_animation), Some(sheet_position_component)) =
-                    (sprite_animation, sheet_position_component)
-                {
-                    sprite_animation.update(delta_time);
+            .zip(character_state_components.iter())
+            .for_each(
+                |(
+                    ((_, sprite_animation_controller), (_, sheet_position_component)),
+                    (_, character_state_component),
+                )| {
+                    if let (
+                        Some(sprite_animation_controller),
+                        Some(sheet_position_component),
+                        Some(character_state_component),
+                    ) = (
+                        sprite_animation_controller,
+                        sheet_position_component,
+                        character_state_component,
+                    ) {
+                        let sprite_animation = sprite_animation_controller
+                            .animation_map
+                            .get_mut(&character_state_component.character_state);
+                        if let Some(sprite_animation) = sprite_animation {
+                            sprite_animation.update(delta_time);
 
-                    sheet_position_component.sheet_position = sheet_position_component
-                        .sprite_sheet
-                        .get_position_by_index(sprite_animation.get_sheet_index());
-                }
-            });
+                            sheet_position_component.sheet_position = sheet_position_component
+                                .sprite_sheet
+                                .get_position_by_index(sprite_animation.get_sheet_index());
+                        }
+                    }
+                },
+            );
     }
 }

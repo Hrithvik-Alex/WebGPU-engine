@@ -174,7 +174,8 @@ impl SpriteSheet {
     }
 
     pub fn get_position_by_index(&self, index: u32) -> Vector2<u32> {
-        Vector2::new(index % self.dimensions.1, index / self.dimensions.1)
+        let num_sprites = self.dimensions.0 / self.sprite_width;
+        Vector2::new(index % num_sprites, index / num_sprites)
     }
 
     pub fn texture(&self) -> Arc<texture::Texture> {
@@ -193,6 +194,10 @@ impl SpriteSheet {
         let sheet_x = sheet_position.x as f32 * step_x;
         let sheet_y = sheet_position.y as f32 * step_y;
 
+        // debug!(
+        //     "{:?} {:?} {:?} {:?} {:?}",
+        //     sheet_x, sheet_y, sheet_position, step_x, step_y
+        // );
         vertex_array.tex_coords = vertex_array
             .whole_tex_coords
             .iter()

@@ -118,3 +118,21 @@ impl WorldUniform {
         })
     }
 }
+
+#[derive(Eq, Hash, PartialEq, Clone, Debug)]
+pub enum CharacterState {
+    IDLE,
+    MOVE,
+    ATTACK,
+}
+
+#[derive(Debug)]
+pub struct CharacterStateComponent {
+    pub character_state: CharacterState,
+}
+
+impl Component for CharacterStateComponent {
+    fn name(&self) -> String {
+        return "Position".to_string();
+    }
+}

@@ -20,8 +20,10 @@ pub struct State<'a> {
     pub camera: camera::OrthographicCamera,
     pub world_uniform: component::WorldUniform,
     pub vertex_array_components: component::EntityMap<component::VertexArrayComponent>, // camera: camera::Camera,
-    pub sprite_animation_components: component::EntityMap<animation::SpriteAnimation>,
+    pub sprite_animation_controller_components:
+        component::EntityMap<animation::SpriteAnimationControllerComponent>,
     pub sheet_position_components: component::EntityMap<sprite::SheetPositionComponent>,
+    pub character_state_components: component::EntityMap<component::CharacterStateComponent>,
     // entities: Vec<component::Entity>,
 }
 
@@ -70,8 +72,9 @@ impl<'a> State<'a> {
 
         let position_components = EntityMap::new();
         let vertex_array_components = EntityMap::new();
-        let sprite_animation_components = EntityMap::new();
+        let sprite_animation_controller_components = EntityMap::new();
         let sheet_position_components = EntityMap::new();
+        let character_state_components = EntityMap::new();
 
         // let entities = position_components
         //     .keys()
@@ -86,8 +89,9 @@ impl<'a> State<'a> {
             camera,
             world_uniform,
             vertex_array_components,
-            sprite_animation_components,
+            sprite_animation_controller_components,
             sheet_position_components,
+            character_state_components,
             // entities,
         }
     }
@@ -96,17 +100,23 @@ impl<'a> State<'a> {
         &mut self,
         position_component: Option<component::PositionComponent>,
         vertex_array_component: Option<component::VertexArrayComponent>,
-        sprite_animation_component: Option<animation::SpriteAnimation>,
+        sprite_animation_controller_component: Option<
+            animation::SpriteAnimationControllerComponent,
+        >,
         sheet_position_component: Option<sprite::SheetPositionComponent>,
+        character_state_component: Option<component::CharacterStateComponent>,
     ) -> component::Entity {
         let entity = self.position_components.insert(position_component);
         self.vertex_array_components.insert(vertex_array_component);
 
-        self.sprite_animation_components
-            .insert(sprite_animation_component);
+        self.sprite_animation_controller_components
+            .insert(sprite_animation_controller_component);
 
         self.sheet_position_components
             .insert(sheet_position_component);
+
+        self.character_state_components
+            .insert(character_state_component);
 
         // self.entities.push(entity);
 
@@ -116,8 +126,9 @@ impl<'a> State<'a> {
     pub fn remove_entity(&mut self, entity: component::Entity) {
         self.position_components.remove(entity);
         self.vertex_array_components.remove(entity);
-        self.sprite_animation_components.remove(entity);
+        self.sprite_animation_controller_components.remove(entity);
         self.sheet_position_components.remove(entity);
+        self.character_state_components.remove(entity);
         // self.entities.
     }
 
