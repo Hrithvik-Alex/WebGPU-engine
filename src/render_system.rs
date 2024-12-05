@@ -6,7 +6,9 @@ use crate::context;
 use crate::model;
 use crate::model::Vertex;
 use crate::texture;
+use cgmath::ElementWise;
 
+use cgmath::Vector2;
 use log::debug;
 use wgpu::util::DeviceExt;
 
@@ -185,11 +187,21 @@ impl RenderSystem {
                             .vertices
                             .iter()
                             .zip(vertex_array.tex_coords.iter())
-                            .map(|(vertex_pos, &tex_coord)| model::ModelVertex2d {
-                                position: ((vertex_pos * pos.scale) + pos.position).into(),
-                                tex_coords: tex_coord.into(),
-                                normal_coords: tex_coord.into(),
-                                texture: vertex_array.texture_index,
+                            .map(|(vertex_pos, &tex_coord)| {
+                                let final_tex_coord = if vertex_array.is_flipped {
+                                    Vector2::new(1. - tex_coord.x, tex_coord.y)
+                                } else {
+                                    tex_coord
+                                };
+
+                                model::ModelVertex2d {
+                                    position: ((vertex_pos.mul_element_wise(pos.scale))
+                                        + pos.position)
+                                        .into(),
+                                    tex_coords: final_tex_coord.into(),
+                                    normal_coords: final_tex_coord.into(),
+                                    texture: vertex_array.texture_index,
+                                }
                             }),
                     );
                     indices.extend(vertex_array.indices.iter().map(|index| 4 * i + index));

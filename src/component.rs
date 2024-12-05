@@ -15,6 +15,7 @@ pub struct VertexArrayComponent {
     pub whole_tex_coords: Vec<cgmath::Vector2<f32>>,
     pub tex_coords: Vec<cgmath::Vector2<f32>>,
     pub texture_index: u32,
+    pub is_flipped: bool,
 }
 
 impl Component for VertexArrayComponent {
@@ -47,6 +48,7 @@ impl VertexArrayComponent {
             tex_coords: whole_tex_coords.clone(),
             whole_tex_coords,
             texture_index,
+            is_flipped: false,
         }
     }
 
@@ -63,7 +65,7 @@ impl VertexArrayComponent {
 #[derive(Debug)]
 pub struct PositionComponent {
     pub position: cgmath::Vector2<f32>,
-    pub scale: f32,
+    pub scale: cgmath::Vector2<f32>,
     pub is_controllable: bool,
 }
 

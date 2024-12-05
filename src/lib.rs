@@ -4,12 +4,14 @@ mod component;
 mod context;
 mod input;
 mod model;
+mod physics;
 mod render_system;
 mod sprite;
 mod state;
 mod texture;
 
 use log::debug;
+use physics::ColliderBoxComponent;
 use std::time::{Duration, Instant};
 use winit::{
     event::*,
@@ -65,11 +67,34 @@ pub async fn run() {
         &state.camera,
     );
 
+    let ground = {
+        let position_component = component::PositionComponent {
+            position: cgmath::Vector2::new(0., 0.),
+            scale: cgmath::Vector2::new(640., 100.),
+            is_controllable: false,
+        };
+
+        let vertex_array_component = component::VertexArrayComponent::textured_quad(999);
+
+        let collider_box_component = ColliderBoxComponent {
+            bottom_left: position_component.position,
+            top_right: position_component.position + position_component.scale,
+        };
+
+        state.add_entity(
+            Some(position_component),
+            Some(vertex_array_component),
+            None,
+            None,
+            None,
+            Some(collider_box_component),
+        )
+    };
     // entity for player
     let character = {
         let position_component = component::PositionComponent {
             position: cgmath::Vector2::new(50., 100.),
-            scale: 64.,
+            scale: cgmath::Vector2::new(64., 64.),
             is_controllable: true,
         };
 
@@ -119,19 +144,25 @@ pub async fn run() {
             character_state: component::CharacterState::IDLE,
         };
 
+        let collider_box_component = ColliderBoxComponent {
+            bottom_left: position_component.position,
+            top_right: position_component.position + position_component.scale,
+        };
+
         state.add_entity(
             Some(position_component),
             Some(vertex_array_component),
             Some(sprite_animation_controller),
             Some(sheet_position_component),
             Some(character_state_component),
+            Some(collider_box_component),
         )
     };
 
     let minotaur = {
         let position_component = component::PositionComponent {
             position: cgmath::Vector2::new(200., 100.),
-            scale: 64.,
+            scale: cgmath::Vector2::new(64., 64.),
             is_controllable: false,
         };
 
@@ -180,12 +211,18 @@ pub async fn run() {
             character_state: component::CharacterState::IDLE,
         };
 
+        let collider_box_component = ColliderBoxComponent {
+            bottom_left: position_component.position,
+            top_right: position_component.position + position_component.scale,
+        };
+
         state.add_entity(
             Some(position_component),
             Some(vertex_array_component),
             Some(sprite_animation_controller),
             Some(sheet_position_component),
             Some(character_state_component),
+            Some(collider_box_component),
         )
     };
 
@@ -196,7 +233,12 @@ pub async fn run() {
     let mut seconds_elapsed: u64 = 0;
     let mut last_frame_time: Duration = Duration::new(0, 0);
 
-    // TODO: implement FixedUpdate
+    const FIXED_UPDATES_PER_SECOND: u32 = 50;
+    const FIXED_UPDATE_DURATION: Duration = Duration::new(0, 1000000000 / FIXED_UPDATES_PER_SECOND);
+    let mut ticks_elapsed = Duration::new(0, 0);
+
+    let physics_system = physics::PhysicsSystem::new(FIXED_UPDATE_DURATION);
+
     let _ = event_loop.run(move |event, control_flow| {
         {
             frames += 1;
@@ -209,11 +251,17 @@ pub async fn run() {
             }
             last_frame_time = current_time;
 
-            input_handler.update_state(
-                &mut state.position_components,
-                &mut state.character_state_components,
-                delta_time,
-            );
+            ticks_elapsed += delta_time;
+            while ticks_elapsed > FIXED_UPDATE_DURATION {
+                physics_system.update(
+                    &input_handler,
+                    &mut state.position_components,
+                    &mut state.collider_box_components,
+                );
+
+                ticks_elapsed -= FIXED_UPDATE_DURATION;
+            }
+
             sprite::SpriteSheetSystem::update(
                 &mut state.vertex_array_components,
                 &state.sheet_position_components,
@@ -271,7 +319,6 @@ pub async fn run() {
                             device_id: _,
                             position,
                         } => input_handler.set_position(*position),
-                        // TODO: refactor input controller
                         WindowEvent::KeyboardInput {
                             device_id: _,
                             event,
@@ -280,6 +327,7 @@ pub async fn run() {
                             event,
                             &mut state.position_components,
                             &mut state.character_state_components,
+                            &mut state.vertex_array_components,
                         ),
 
                         _ => {}

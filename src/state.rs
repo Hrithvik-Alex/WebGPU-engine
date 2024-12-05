@@ -3,6 +3,7 @@ use crate::camera;
 use crate::component;
 use crate::component::EntityMap;
 use crate::context;
+use crate::physics;
 use crate::sprite;
 use crate::texture;
 
@@ -14,7 +15,6 @@ pub struct State<'a> {
     pub context: context::Context<'a>,
     pub size: winit::dpi::PhysicalSize<u32>,
     pub window: &'a Window,
-    // TODO: decouple sprite sheet and textures
     pub sprite_sheets: Vec<Arc<sprite::SpriteSheet>>,
     pub position_components: component::EntityMap<component::PositionComponent>,
     pub camera: camera::OrthographicCamera,
@@ -24,6 +24,7 @@ pub struct State<'a> {
         component::EntityMap<animation::SpriteAnimationControllerComponent>,
     pub sheet_position_components: component::EntityMap<sprite::SheetPositionComponent>,
     pub character_state_components: component::EntityMap<component::CharacterStateComponent>,
+    pub collider_box_components: component::EntityMap<physics::ColliderBoxComponent>,
     // entities: Vec<component::Entity>,
 }
 
@@ -75,6 +76,7 @@ impl<'a> State<'a> {
         let sprite_animation_controller_components = EntityMap::new();
         let sheet_position_components = EntityMap::new();
         let character_state_components = EntityMap::new();
+        let collider_box_components = EntityMap::new();
 
         // let entities = position_components
         //     .keys()
@@ -92,7 +94,7 @@ impl<'a> State<'a> {
             sprite_animation_controller_components,
             sheet_position_components,
             character_state_components,
-            // entities,
+            collider_box_components, // entities,
         }
     }
 
@@ -105,6 +107,7 @@ impl<'a> State<'a> {
         >,
         sheet_position_component: Option<sprite::SheetPositionComponent>,
         character_state_component: Option<component::CharacterStateComponent>,
+        collider_box_component: Option<physics::ColliderBoxComponent>,
     ) -> component::Entity {
         let entity = self.position_components.insert(position_component);
         self.vertex_array_components.insert(vertex_array_component);
@@ -118,6 +121,8 @@ impl<'a> State<'a> {
         self.character_state_components
             .insert(character_state_component);
 
+        self.collider_box_components.insert(collider_box_component);
+
         // self.entities.push(entity);
 
         entity
@@ -129,6 +134,7 @@ impl<'a> State<'a> {
         self.sprite_animation_controller_components.remove(entity);
         self.sheet_position_components.remove(entity);
         self.character_state_components.remove(entity);
+        self.collider_box_components.remove(entity);
         // self.entities.
     }
 

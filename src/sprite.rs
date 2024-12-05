@@ -182,8 +182,6 @@ impl SpriteSheet {
         return self.texture.clone();
     }
 
-    // TODO: make a system with sheet position components and vertex array components
-
     pub fn adjust_tex_coords(
         &self,
         vertex_array: &mut component::VertexArrayComponent,
