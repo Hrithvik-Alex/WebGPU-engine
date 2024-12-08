@@ -301,6 +301,7 @@ pub async fn run() {
                                 &state.vertex_array_components,
                                 &textures,
                                 &state.context,
+                                true,
                             );
                             match render_result {
                                 Ok(_) => {}

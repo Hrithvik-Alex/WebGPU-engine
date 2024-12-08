@@ -68,11 +68,8 @@ impl PhysicsSystem {
                         top_right: collider_box_component1.top_right + delta,
                     };
 
-                    // Collect references to other collider boxes first
+                    // TODO: implement better collision detection, this is O(N^2) lol
 
-                    // TODO: implement better collision detection
-
-                    // Check collisions with collected references
                     let collision_detected = collider_box_components.iter().any(|(e2, box2)| {
                         box2.as_ref().map_or(false, |box2| {
                             e1 != e2 && Self::is_colliding(&new_collision_box, &box2)
@@ -80,7 +77,6 @@ impl PhysicsSystem {
                     });
 
                     if collision_detected {
-                        // Revert position if collision occurred
                         delta_add -= delta;
                     }
                     position_component.position += delta_add;
@@ -88,6 +84,7 @@ impl PhysicsSystem {
                 })
                 .collect::<Vec<Vector2<f32>>>();
 
+            // rust limitation of mutable references so I need to do this :(( maybe I can use itertools?
             collider_deltas
                 .iter()
                 .zip(collider_box_components.iter_mut())
@@ -97,23 +94,6 @@ impl PhysicsSystem {
                         collider_box_component.top_right += *delta;
                     }
                 });
-
-            // for (i, (e1, collider_box1)) in collider_box_components.iter().enumerate() {
-            //     for (j, (e2, collider_box2)) in
-            //         collider_box_components.iter().enumerate().skip(i + 1)
-            //     {
-            //         if let (Some(collider_box1), Some(collider_box2)) =
-            //             (collider_box1, collider_box2)
-            //         {
-            //             if Self::is_colliding(&collider_box1, &collider_box2) {
-            //                 // Your collision handling code here
-            //             }
-            //         }
-            //     }
-            // }
-            // let position = state.sprite.get_position();
-
-            // state.sprite.update_position(position + delta)
         };
         if input_handler.up_pressed {
             update_position(0., 1.)

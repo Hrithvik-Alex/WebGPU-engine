@@ -75,6 +75,17 @@ impl Component for PositionComponent {
     }
 }
 
+impl PositionComponent {
+    pub fn scale_outward(&self, scale: cgmath::Vector2<f32>) -> Self {
+        assert!(scale.x >= 1. && scale.y >= 1.);
+        Self {
+            position: self.position - scale / 2.,
+            scale: self.scale + scale / 2.,
+            is_controllable: self.is_controllable,
+        }
+    }
+}
+
 #[repr(C)]
 // This is so we can store this in a buffer
 #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
