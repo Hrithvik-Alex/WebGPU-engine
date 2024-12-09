@@ -20,6 +20,8 @@ pub struct RenderSystem {
     // context: &'a context::Context<'a>,
     orig_render_pipeline: wgpu::RenderPipeline,
     debug_render_pipeline: wgpu::RenderPipeline,
+    wireframe_render_pipeline: wgpu::RenderPipeline,
+    wireframe_bind_group_layout: wgpu::BindGroupLayout,
     uniform_bind_group: wgpu::BindGroup,
     depth_stencil: texture::TextureBasic,
 }
@@ -94,7 +96,6 @@ impl RenderSystem {
                     label: Some("shader"),
                     source: wgpu::ShaderSource::Wgsl(include_str!("shader.wgsl").into()),
                 });
-
 
         let mut bind_group_layouts: Vec<&wgpu::BindGroupLayout> = vec![&uniform_bind_group_layout];
 
@@ -183,7 +184,6 @@ impl RenderSystem {
 
         let debug_render_pipeline =
             create_render_pipeline("Debug Render Pipeline", "vs_main", "fs_main");
-      
 
         let depth_stencil = texture::TextureBasic::create_depth_texture(
             &context.device,
@@ -191,64 +191,135 @@ impl RenderSystem {
             "depth_texture",
         );
 
+        let (wireframe_render_pipeline, wireframe_bind_group_layout) =
+            Self::create_wireframe_pipeline(context, &uniform_bind_group_layout);
+
         Self {
             orig_render_pipeline,
             debug_render_pipeline,
+            wireframe_render_pipeline,
+            wireframe_bind_group_layout,
             uniform_bind_group,
             depth_stencil,
         }
     }
 
-    fn create_wireframe_pipeline(context: &context::Context,) -> wgpu::RenderPipeline {
+    fn create_wireframe_pipeline(
+        context: &context::Context,
+        uniform_bind_group_layout: &wgpu::BindGroupLayout,
+    ) -> (wgpu::RenderPipeline, wgpu::BindGroupLayout) {
+        let wireframe_shader = context
+            .device
+            .create_shader_module(wgpu::ShaderModuleDescriptor {
+                label: Some("wireframe shader"),
+                source: wgpu::ShaderSource::Wgsl(include_str!("wireframe.wgsl").into()),
+            });
 
-        let wireframe_shader = 
-        context
+        let bind_group_layout =
+            context
                 .device
-                .create_shader_module(wgpu::ShaderModuleDescriptor {
-                    label: Some("wireframe shader"),
-                    source: wgpu::ShaderSource::Wgsl(include_str!("wireframe.wgsl").into()),
-                }); 
+                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    label: Some("wireframe bind group layout"),
+                    entries: &[
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 0,
+                            visibility: wgpu::ShaderStages::VERTEX,
+                            ty: wgpu::BindingType::Buffer {
+                                ty: wgpu::BufferBindingType::Storage { read_only: true },
+                                has_dynamic_offset: false,
+                                min_binding_size: None,
+                            },
+                            count: None,
+                        },
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 1,
+                            visibility: wgpu::ShaderStages::VERTEX,
+                            ty: wgpu::BindingType::Buffer {
+                                ty: wgpu::BufferBindingType::Storage { read_only: true },
+                                has_dynamic_offset: false,
+                                min_binding_size: None,
+                            },
+                            count: None,
+                        },
+                    ],
+                });
 
+        let render_pipeline_layout =
+            context
+                .device
+                .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                    label: Some("Wireframe Render Pipeline Layout"),
+                    bind_group_layouts: &[&uniform_bind_group_layout, &bind_group_layout],
+                    push_constant_ranges: &[],
+                });
 
-        context.device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Wireframe Pipeline"),
-            layout: ,// TODO
-            vertex: wgpu::VertexState {
-                module: &wireframe_shader,
-                entry_point: "vs_main",
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-                buffers: ,// TODO
-            },
-            fragment: Some(wgpu::FragmentState {
-                module: &wireframe_shader,
-                entry_point: "fs_main",
-                targets: &[Some(wgpu::ColorTargetState {
-                    format: context.config.format,
-                    blend: Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING),
-                    write_mask: wgpu::ColorWrites::ALL,
-                })],
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-            }),
-            primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::LineList,
-                strip_index_format: None, 
-                front_face: wgpu::FrontFace::Ccw,
-                cull_mode: Some(wgpu::Face::Back),
-                polygon_mode: wgpu::PolygonMode::Fill,
-                unclipped_depth: false,
-                conservative: false,
-            },
-            depth_stencil: None,
-            multisample: wgpu::MultisampleState {
-                //TODO: What is multisampling?
-                count: 1,
-                mask: !0,
-                alpha_to_coverage_enabled: false,
-            },
-            multiview: None,
-            cache: None,
+        let stencil_state = wgpu::StencilFaceState {
+            compare: wgpu::CompareFunction::Always,
+            fail_op: wgpu::StencilOperation::Keep,
+            depth_fail_op: wgpu::StencilOperation::Keep,
+            pass_op: wgpu::StencilOperation::IncrementClamp,
+        };
 
-        })
+        (
+            context
+                .device
+                .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+                    label: Some("Wireframe Pipeline"),
+                    layout: Some(&render_pipeline_layout),
+                    vertex: wgpu::VertexState {
+                        module: &wireframe_shader,
+                        entry_point: "vs_main",
+                        compilation_options: wgpu::PipelineCompilationOptions::default(),
+                        buffers: &[], // TODO
+                    },
+                    fragment: Some(wgpu::FragmentState {
+                        module: &wireframe_shader,
+                        entry_point: "fs_main",
+                        targets: &[Some(wgpu::ColorTargetState {
+                            format: context.config.format,
+                            blend: Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING),
+                            write_mask: wgpu::ColorWrites::ALL,
+                        })],
+                        compilation_options: wgpu::PipelineCompilationOptions::default(),
+                    }),
+                    primitive: wgpu::PrimitiveState {
+                        topology: wgpu::PrimitiveTopology::LineList,
+                        strip_index_format: None,
+                        front_face: wgpu::FrontFace::Ccw,
+                        cull_mode: Some(wgpu::Face::Back),
+                        polygon_mode: wgpu::PolygonMode::Fill,
+                        unclipped_depth: false,
+                        conservative: false,
+                    },
+                    depth_stencil: Some(wgpu::DepthStencilState {
+                        format: texture::TextureBasic::DEPTH_FORMAT,
+                        depth_write_enabled: true,
+                        depth_compare: wgpu::CompareFunction::Less,
+                        bias: wgpu::DepthBiasState {
+                            constant: 1,
+                            slope_scale: 0.5,
+                            clamp: 1.,
+                        },
+                        stencil: wgpu::StencilState {
+                            front: stencil_state,
+                            back: stencil_state,
+                            // Applied to values being read from the buffer
+                            read_mask: 0xff,
+                            // Applied to values before being written to the buffer
+                            write_mask: 0xff,
+                        },
+                    }),
+                    multisample: wgpu::MultisampleState {
+                        //TODO: What is multisampling?
+                        count: 1,
+                        mask: !0,
+                        alpha_to_coverage_enabled: false,
+                    },
+                    multiview: None,
+                    cache: None,
+                }),
+            bind_group_layout,
+        )
     }
 
     pub fn render(
@@ -298,6 +369,8 @@ impl RenderSystem {
                     (vertices, indices, i + 1)
                 },
             );
+
+        let num_vertices = all_vertices.len();
         // debug!("{:?}", all_vertices);
         // debug!("{:?}", all_indices);
         let vertex_buffer = context
@@ -305,7 +378,7 @@ impl RenderSystem {
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("Vertex Buffer"),
                 contents: bytemuck::cast_slice(&all_vertices),
-                usage: wgpu::BufferUsages::VERTEX,
+                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::STORAGE,
             });
 
         let index_buffer = context
@@ -313,7 +386,7 @@ impl RenderSystem {
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("Index Buffer"),
                 contents: bytemuck::cast_slice(&all_indices),
-                usage: wgpu::BufferUsages::INDEX,
+                usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::STORAGE,
             });
 
         let output = context.surface.get_current_texture()?;
@@ -365,41 +438,64 @@ impl RenderSystem {
             render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
             render_pass.set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint32); // 1.
             render_pass.draw_indexed(0..all_indices.len() as u32, 0, 0..1);
+
+            render_pass.set_pipeline(&self.wireframe_render_pipeline);
+            render_pass.set_bind_group(0, &self.uniform_bind_group, &[]);
+
+            let wireframe_bind_group =
+                context
+                    .device
+                    .create_bind_group(&wgpu::BindGroupDescriptor {
+                        label: Some("wireframe bind group"),
+                        layout: &self.wireframe_bind_group_layout,
+                        entries: &[
+                            wgpu::BindGroupEntry {
+                                binding: 0,
+                                resource: vertex_buffer.as_entire_binding(),
+                            },
+                            wgpu::BindGroupEntry {
+                                binding: 1,
+                                resource: index_buffer.as_entire_binding(),
+                            },
+                        ],
+                    });
+            render_pass.set_bind_group(1, &wireframe_bind_group, &[]);
+            render_pass.draw(0..num_vertices as u32 * 2, 0..1);
         }
 
-        if add_debug_pass {
-            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("Debug Render Pass"),
-                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &view,
-                    resolve_target: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 0.0,
-                            g: 0.0,
-                            b: 0.0,
-                            a: 1.0,
-                        }),
-                        store: wgpu::StoreOp::Store,
-                    },
-                })],
-                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                    view: &self.depth_stencil.view,
-                    depth_ops: Some(wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(1.0),
-                        store: wgpu::StoreOp::Store,
-                    }),
-                    stencil_ops: Some(wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(0),
-                        store: wgpu::StoreOp::Store,
-                    }),
-                }),
-                occlusion_query_set: None,
-                timestamp_writes: None,
-            });
+        // if add_debug_pass {
+        //     let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+        //         label: Some("Debug Render Pass"),
+        //         color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+        //             view: &view,
+        //             resolve_target: None,
+        //             ops: wgpu::Operations {
+        //                 load: wgpu::LoadOp::Clear(wgpu::Color {
+        //                     r: 0.0,
+        //                     g: 0.0,
+        //                     b: 0.0,
+        //                     a: 1.0,
+        //                 }),
+        //                 store: wgpu::StoreOp::Store,
+        //             },
+        //         })],
+        //         depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+        //             view: &self.depth_stencil.view,
+        //             depth_ops: Some(wgpu::Operations {
+        //                 load: wgpu::LoadOp::Clear(1.0),
+        //                 store: wgpu::StoreOp::Store,
+        //             }),
+        //             stencil_ops: Some(wgpu::Operations {
+        //                 load: wgpu::LoadOp::Clear(0),
+        //                 store: wgpu::StoreOp::Store,
+        //             }),
+        //         }),
+        //         occlusion_query_set: None,
+        //         timestamp_writes: None,
+        //     });
 
-            render_pass.set_pipeline(&self.debug_render_pipeline);
-        }
+        //     render_pass.set_pipeline(&self.debug_render_pipeline);
+        // }
 
         context.queue.submit(std::iter::once(encoder.finish()));
         output.present();
