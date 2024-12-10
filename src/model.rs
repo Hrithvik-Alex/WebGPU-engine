@@ -1,7 +1,7 @@
 pub trait Vertex {
     fn desc() -> wgpu::VertexBufferLayout<'static>;
 
-    const ATTRIBS: [wgpu::VertexAttribute; 4];
+    const ATTRIBS: [wgpu::VertexAttribute; 5];
 }
 
 #[repr(C)]
@@ -11,11 +11,11 @@ pub struct ModelVertex2d {
     pub tex_coords: [f32; 2],
     pub normal_coords: [f32; 2],
     pub texture: u32,
+    pub padding: f32,
 }
 
 impl Vertex for ModelVertex2d {
-    const ATTRIBS: [wgpu::VertexAttribute; 4] =
-        wgpu::vertex_attr_array![0 => Float32x2, 1 => Float32x2, 2 => Float32x2, 3 => Uint32];
+    const ATTRIBS: [wgpu::VertexAttribute; 5] = wgpu::vertex_attr_array![0 => Float32x2, 1 => Float32x2, 2 => Float32x2, 3 => Uint32, 4 => Float32];
 
     fn desc() -> wgpu::VertexBufferLayout<'static> {
         use std::mem;

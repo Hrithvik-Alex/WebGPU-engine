@@ -22,6 +22,8 @@ pub struct RenderSystem {
     debug_render_pipeline: wgpu::RenderPipeline,
     wireframe_render_pipeline: wgpu::RenderPipeline,
     wireframe_bind_group_layout: wgpu::BindGroupLayout,
+    post_render_pipeline: wgpu::RenderPipeline,
+    post_bind_group_layout: wgpu::BindGroupLayout,
     uniform_bind_group: wgpu::BindGroup,
     depth_stencil: texture::TextureBasic,
 }
@@ -194,11 +196,15 @@ impl RenderSystem {
         let (wireframe_render_pipeline, wireframe_bind_group_layout) =
             Self::create_wireframe_pipeline(context, &uniform_bind_group_layout);
 
+        let (post_render_pipeline, post_bind_group_layout) = Self::create_post_pipeline(context);
+
         Self {
             orig_render_pipeline,
             debug_render_pipeline,
             wireframe_render_pipeline,
             wireframe_bind_group_layout,
+            post_render_pipeline,
+            post_bind_group_layout,
             uniform_bind_group,
             depth_stencil,
         }
@@ -296,6 +302,124 @@ impl RenderSystem {
                         depth_write_enabled: true,
                         depth_compare: wgpu::CompareFunction::Less,
                         bias: wgpu::DepthBiasState {
+                            // TODO: understand what this does
+                            constant: 1,
+                            slope_scale: 0.5,
+                            clamp: 1.,
+                        },
+                        stencil: wgpu::StencilState {
+                            front: stencil_state,
+                            back: stencil_state,
+                            // Applied to values being read from the buffer
+                            read_mask: 0xff,
+                            // Applied to values before being written to the buffer
+                            write_mask: 0xff,
+                        },
+                    }),
+                    multisample: wgpu::MultisampleState {
+                        //TODO: What is multisampling?
+                        count: 1,
+                        mask: !0,
+                        alpha_to_coverage_enabled: false,
+                    },
+                    multiview: None,
+                    cache: None,
+                }),
+            bind_group_layout,
+        )
+    }
+
+    fn create_post_pipeline(
+        context: &context::Context,
+    ) -> (wgpu::RenderPipeline, wgpu::BindGroupLayout) {
+        let post_shader = context
+            .device
+            .create_shader_module(wgpu::ShaderModuleDescriptor {
+                label: Some("post shader"),
+                source: wgpu::ShaderSource::Wgsl(include_str!("post.wgsl").into()),
+            });
+
+        let bind_group_layout =
+            context
+                .device
+                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    label: Some("post bind group layout"),
+                    entries: &[
+                        // TODO: move into BasicTexture?
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 0,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Texture {
+                                multisampled: false,
+                                view_dimension: wgpu::TextureViewDimension::D2,
+                                sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            },
+                            count: None,
+                        },
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 1,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            // This should match the filterable field of the
+                            // corresponding Texture entry above.
+                            ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                            count: None,
+                        },
+                    ],
+                });
+
+        let render_pipeline_layout =
+            context
+                .device
+                .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                    label: Some("post Render Pipeline Layout"),
+                    bind_group_layouts: &[&bind_group_layout],
+                    push_constant_ranges: &[],
+                });
+
+        let stencil_state = wgpu::StencilFaceState {
+            compare: wgpu::CompareFunction::Always,
+            fail_op: wgpu::StencilOperation::Keep,
+            depth_fail_op: wgpu::StencilOperation::Keep,
+            pass_op: wgpu::StencilOperation::IncrementClamp,
+        };
+
+        (
+            context
+                .device
+                .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+                    label: Some("post Pipeline"),
+                    layout: Some(&render_pipeline_layout),
+                    vertex: wgpu::VertexState {
+                        module: &post_shader,
+                        entry_point: "vs_main",
+                        compilation_options: wgpu::PipelineCompilationOptions::default(),
+                        buffers: &[], // TODO
+                    },
+                    fragment: Some(wgpu::FragmentState {
+                        module: &post_shader,
+                        entry_point: "fs_main",
+                        targets: &[Some(wgpu::ColorTargetState {
+                            format: context.config.format,
+                            blend: Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING),
+                            write_mask: wgpu::ColorWrites::ALL,
+                        })],
+                        compilation_options: wgpu::PipelineCompilationOptions::default(),
+                    }),
+                    primitive: wgpu::PrimitiveState {
+                        topology: wgpu::PrimitiveTopology::LineList,
+                        strip_index_format: None,
+                        front_face: wgpu::FrontFace::Ccw,
+                        cull_mode: Some(wgpu::Face::Back),
+                        polygon_mode: wgpu::PolygonMode::Fill,
+                        unclipped_depth: false,
+                        conservative: false,
+                    },
+                    depth_stencil: Some(wgpu::DepthStencilState {
+                        format: texture::TextureBasic::DEPTH_FORMAT,
+                        depth_write_enabled: true,
+                        depth_compare: wgpu::CompareFunction::Less,
+                        bias: wgpu::DepthBiasState {
+                            // TODO: understand what this does
                             constant: 1,
                             slope_scale: 0.5,
                             clamp: 1.,
@@ -360,8 +484,9 @@ impl RenderSystem {
                                         + pos.position)
                                         .into(),
                                     tex_coords: final_tex_coord.into(),
-                                    normal_coords: final_tex_coord.into(),
+                                    normal_coords: final_tex_coord.into(), // TODO: maybe have to flip something here?
                                     texture: vertex_array.texture_index,
+                                    padding: 0.,
                                 }
                             }),
                     );
@@ -371,8 +496,9 @@ impl RenderSystem {
             );
 
         let num_vertices = all_vertices.len();
+
         // debug!("{:?}", all_vertices);
-        // debug!("{:?}", all_indices);
+        debug!("{:?}", all_indices.len());
         let vertex_buffer = context
             .device
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -389,21 +515,20 @@ impl RenderSystem {
                 usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::STORAGE,
             });
 
-        let output = context.surface.get_current_texture()?;
-        let view = output
-            .texture
-            .create_view(&wgpu::TextureViewDescriptor::default());
         let mut encoder = context
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("Render Encoder"),
             });
 
+        let frame_buffer =
+            texture::TextureBasic::create_basic(&context.device, &context.config, "frame buffer");
+
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Original Render Pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &view,
+                    view: &frame_buffer.view,
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color {
@@ -440,7 +565,6 @@ impl RenderSystem {
             render_pass.draw_indexed(0..all_indices.len() as u32, 0, 0..1);
 
             render_pass.set_pipeline(&self.wireframe_render_pipeline);
-            render_pass.set_bind_group(0, &self.uniform_bind_group, &[]);
 
             let wireframe_bind_group =
                 context
@@ -460,7 +584,63 @@ impl RenderSystem {
                         ],
                     });
             render_pass.set_bind_group(1, &wireframe_bind_group, &[]);
-            render_pass.draw(0..num_vertices as u32 * 2, 0..1);
+            render_pass.draw(0..num_vertices as u32 * 3, 0..1); // TODO: slightly overdraws 6 instead of 5 edges per, maybe optimize?
+        }
+
+        let output = context.surface.get_current_texture()?;
+        let surface_view = output
+            .texture
+            .create_view(&wgpu::TextureViewDescriptor::default());
+        {
+            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("Post Render Pass"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &surface_view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color {
+                            r: 1.0,
+                            g: 0.0,
+                            b: 0.0,
+                            a: 1.0,
+                        }),
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: &self.depth_stencil.view,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Load,
+                        store: wgpu::StoreOp::Store,
+                    }),
+                    stencil_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Load,
+                        store: wgpu::StoreOp::Store,
+                    }),
+                }),
+                occlusion_query_set: None,
+                timestamp_writes: None,
+            });
+
+            let bind_group = context
+                .device
+                .create_bind_group(&wgpu::BindGroupDescriptor {
+                    label: Some("post bind group"),
+                    layout: &self.post_bind_group_layout,
+                    entries: &[
+                        wgpu::BindGroupEntry {
+                            binding: 0,
+                            resource: wgpu::BindingResource::TextureView(&frame_buffer.view),
+                        },
+                        wgpu::BindGroupEntry {
+                            binding: 1,
+                            resource: wgpu::BindingResource::Sampler(&frame_buffer.sampler),
+                        },
+                    ],
+                });
+            render_pass.set_pipeline(&self.post_render_pipeline);
+            render_pass.set_bind_group(0, &bind_group, &[]);
+            render_pass.draw(0..6, 0..1);
         }
 
         // if add_debug_pass {

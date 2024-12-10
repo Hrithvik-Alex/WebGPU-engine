@@ -1,4 +1,5 @@
 use crate::component::Component;
+use log::debug;
 use winit::window::Window;
 
 pub struct Context<'a> {
@@ -51,6 +52,9 @@ impl<'a> Context<'a> {
             .await
             .unwrap();
 
+        device.on_uncaptured_error(Box::new(|error| {
+            debug!("Uncaught WGPU error: {:?}", error);
+        }));
         let surface_caps = surface.get_capabilities(&adapter);
         // TODO: potentially use different textureformat
         let surface_format = surface_caps

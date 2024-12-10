@@ -35,7 +35,7 @@ impl InputHandler {
         vertex_array_components: &mut component::EntityMap<component::VertexArrayComponent>,
     ) {
         let mut update_state = |state: component::CharacterState, is_flipped: Option<bool>| {
-            debug!("{:?}", state);
+            // debug!("{:?}", state);
             position_components
                 .iter_mut()
                 .zip(character_state_components.iter_mut())

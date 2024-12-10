@@ -38,8 +38,9 @@ var<storage, read> indices: array<u32>;
   let index = indices[triNdx * 3 + vertNdx];
 
 
-  let pNdx = index * 6;
-  let position = vec4f(positions[pNdx], positions[pNdx + 1], positions[pNdx + 2], 1);
+  let pNdx = index * 8; // modelvertex2d stride length
+  let position = vec4f(positions[pNdx], positions[pNdx + 1], 0.9, 1.0);
+
 
   var vOut: VertexOut;
   vOut.position = camera.view_proj * ( world.matrix * position );
