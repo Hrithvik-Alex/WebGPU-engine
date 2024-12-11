@@ -156,20 +156,21 @@ impl RenderSystem {
                         // Requires Features::CONSERVATIVE_RASTERIZATION
                         conservative: false,
                     },
-                    depth_stencil: Some(wgpu::DepthStencilState {
-                        format: texture::TextureBasic::DEPTH_FORMAT,
-                        depth_write_enabled: true,
-                        depth_compare: wgpu::CompareFunction::Less,
-                        bias: wgpu::DepthBiasState::default(),
-                        stencil: wgpu::StencilState {
-                            front: stencil_state,
-                            back: stencil_state,
-                            // Applied to values being read from the buffer
-                            read_mask: 0xff,
-                            // Applied to values before being written to the buffer
-                            write_mask: 0xff,
-                        },
-                    }),
+                    depth_stencil: None,
+                    //  Some(wgpu::DepthStencilState {
+                    //     format: texture::TextureBasic::DEPTH_FORMAT,
+                    //     depth_write_enabled: true,
+                    //     depth_compare: wgpu::CompareFunction::Less,
+                    //     bias: wgpu::DepthBiasState::default(),
+                    //     stencil: wgpu::StencilState {
+                    //         front: stencil_state,
+                    //         back: stencil_state,
+                    //         // Applied to values being read from the buffer
+                    //         read_mask: 0xff,
+                    //         // Applied to values before being written to the buffer
+                    //         write_mask: 0xff,
+                    //     },
+                    // }),
                     multisample: wgpu::MultisampleState {
                         //TODO: What is multisampling?
                         count: 1,
@@ -297,25 +298,26 @@ impl RenderSystem {
                         unclipped_depth: false,
                         conservative: false,
                     },
-                    depth_stencil: Some(wgpu::DepthStencilState {
-                        format: texture::TextureBasic::DEPTH_FORMAT,
-                        depth_write_enabled: true,
-                        depth_compare: wgpu::CompareFunction::Less,
-                        bias: wgpu::DepthBiasState {
-                            // TODO: understand what this does
-                            constant: 1,
-                            slope_scale: 0.5,
-                            clamp: 1.,
-                        },
-                        stencil: wgpu::StencilState {
-                            front: stencil_state,
-                            back: stencil_state,
-                            // Applied to values being read from the buffer
-                            read_mask: 0xff,
-                            // Applied to values before being written to the buffer
-                            write_mask: 0xff,
-                        },
-                    }),
+                    depth_stencil: None,
+                    //  Some(wgpu::DepthStencilState {
+                    //     format: texture::TextureBasic::DEPTH_FORMAT,
+                    //     depth_write_enabled: true,
+                    //     depth_compare: wgpu::CompareFunction::Less,
+                    //     bias: wgpu::DepthBiasState {
+                    //         // TODO: understand what this does
+                    //         constant: 1,
+                    //         slope_scale: 0.5,
+                    //         clamp: 1.,
+                    //     },
+                    //     stencil: wgpu::StencilState {
+                    //         front: stencil_state,
+                    //         back: stencil_state,
+                    //         // Applied to values being read from the buffer
+                    //         read_mask: 0xff,
+                    //         // Applied to values before being written to the buffer
+                    //         write_mask: 0xff,
+                    //     },
+                    // }),
                     multisample: wgpu::MultisampleState {
                         //TODO: What is multisampling?
                         count: 1,
@@ -406,7 +408,7 @@ impl RenderSystem {
                         compilation_options: wgpu::PipelineCompilationOptions::default(),
                     }),
                     primitive: wgpu::PrimitiveState {
-                        topology: wgpu::PrimitiveTopology::LineList,
+                        topology: wgpu::PrimitiveTopology::TriangleList,
                         strip_index_format: None,
                         front_face: wgpu::FrontFace::Ccw,
                         cull_mode: Some(wgpu::Face::Back),
@@ -414,25 +416,26 @@ impl RenderSystem {
                         unclipped_depth: false,
                         conservative: false,
                     },
-                    depth_stencil: Some(wgpu::DepthStencilState {
-                        format: texture::TextureBasic::DEPTH_FORMAT,
-                        depth_write_enabled: true,
-                        depth_compare: wgpu::CompareFunction::Less,
-                        bias: wgpu::DepthBiasState {
-                            // TODO: understand what this does
-                            constant: 1,
-                            slope_scale: 0.5,
-                            clamp: 1.,
-                        },
-                        stencil: wgpu::StencilState {
-                            front: stencil_state,
-                            back: stencil_state,
-                            // Applied to values being read from the buffer
-                            read_mask: 0xff,
-                            // Applied to values before being written to the buffer
-                            write_mask: 0xff,
-                        },
-                    }),
+                    depth_stencil: None,
+                    // Some(wgpu::DepthStencilState {
+                    //     format: texture::TextureBasic::DEPTH_FORMAT,
+                    //     depth_write_enabled: true,
+                    //     depth_compare: wgpu::CompareFunction::Less,
+                    //     bias: wgpu::DepthBiasState {
+                    //         // TODO: understand what this does
+                    //         constant: 1,
+                    //         slope_scale: 0.5,
+                    //         clamp: 1.,
+                    //     },
+                    //     stencil: wgpu::StencilState {
+                    //         front: stencil_state,
+                    //         back: stencil_state,
+                    //         // Applied to values being read from the buffer
+                    //         read_mask: 0xff,
+                    //         // Applied to values before being written to the buffer
+                    //         write_mask: 0xff,
+                    //     },
+                    // }),
                     multisample: wgpu::MultisampleState {
                         //TODO: What is multisampling?
                         count: 1,
@@ -498,7 +501,7 @@ impl RenderSystem {
         let num_vertices = all_vertices.len();
 
         // debug!("{:?}", all_vertices);
-        debug!("{:?}", all_indices.len());
+        // debug!("{:?}", all_indices.len());
         let vertex_buffer = context
             .device
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -540,17 +543,18 @@ impl RenderSystem {
                         store: wgpu::StoreOp::Store,
                     },
                 })],
-                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                    view: &self.depth_stencil.view,
-                    depth_ops: Some(wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(1.0),
-                        store: wgpu::StoreOp::Store,
-                    }),
-                    stencil_ops: Some(wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(0),
-                        store: wgpu::StoreOp::Store,
-                    }),
-                }),
+                depth_stencil_attachment: None,
+                // Some(wgpu::RenderPassDepthStencilAttachment {
+                //     view: &self.depth_stencil.view,
+                //     depth_ops: Some(wgpu::Operations {
+                //         load: wgpu::LoadOp::Clear(1.0),
+                //         store: wgpu::StoreOp::Store,
+                //     }),
+                //     stencil_ops: Some(wgpu::Operations {
+                //         load: wgpu::LoadOp::Clear(0),
+                //         store: wgpu::StoreOp::Store,
+                //     }),
+                // }),
                 occlusion_query_set: None,
                 timestamp_writes: None,
             });
@@ -588,36 +592,57 @@ impl RenderSystem {
         }
 
         let output = context.surface.get_current_texture()?;
-        let surface_view = output
-            .texture
-            .create_view(&wgpu::TextureViewDescriptor::default());
+        // let surface_view = output.texture;
+        // .create_xview(&wgpu::TextureViewDescriptor::default());
+
+        // encoder.copy_texture_to_texture(
+        //     wgpu::ImageCopyTexture {
+        //         texture: &frame_buffer.texture,
+        //         mip_level: 0,
+        //         origin: wgpu::Origin3d::ZERO,
+        //         aspect: wgpu::TextureAspect::All,
+        //     },
+        //     wgpu::ImageCopyTexture {
+        //         texture: &output.texture,
+        //         mip_level: 0,
+        //         origin: wgpu::Origin3d::ZERO,
+        //         aspect: wgpu::TextureAspect::All,
+        //     },
+        //     frame_buffer.texture.size(),
+        // );
+
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Post Render Pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &surface_view,
+                    view: &output
+                        .texture
+                        .create_view(&wgpu::TextureViewDescriptor::default()),
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 1.0,
-                            g: 0.0,
-                            b: 0.0,
+                        load:
+                        //  wgpu::LoadOp::Load,
+                        wgpu::LoadOp::Clear(wgpu::Color {
+                            r: 0.8,
+                            g: 0.8,
+                            b: 0.8,
                             a: 1.0,
                         }),
                         store: wgpu::StoreOp::Store,
                     },
                 })],
-                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                    view: &self.depth_stencil.view,
-                    depth_ops: Some(wgpu::Operations {
-                        load: wgpu::LoadOp::Load,
-                        store: wgpu::StoreOp::Store,
-                    }),
-                    stencil_ops: Some(wgpu::Operations {
-                        load: wgpu::LoadOp::Load,
-                        store: wgpu::StoreOp::Store,
-                    }),
-                }),
+                depth_stencil_attachment: None,
+                //  Some(wgpu::RenderPassDepthStencilAttachment {
+                //     view: &self.depth_stencil.view,
+                //     depth_ops: Some(wgpu::Operations {
+                //         load: wgpu::LoadOp::Load,
+                //         store: wgpu::StoreOp::Store,
+                //     }),
+                //     stencil_ops: Some(wgpu::Operations {
+                //         load: wgpu::LoadOp::Load,
+                //         store: wgpu::StoreOp::Store,
+                //     }),
+                // }),
                 occlusion_query_set: None,
                 timestamp_writes: None,
             });
