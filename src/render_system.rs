@@ -156,21 +156,22 @@ impl RenderSystem {
                         // Requires Features::CONSERVATIVE_RASTERIZATION
                         conservative: false,
                     },
-                    depth_stencil: None,
-                    //  Some(wgpu::DepthStencilState {
-                    //     format: texture::TextureBasic::DEPTH_FORMAT,
-                    //     depth_write_enabled: true,
-                    //     depth_compare: wgpu::CompareFunction::Less,
-                    //     bias: wgpu::DepthBiasState::default(),
-                    //     stencil: wgpu::StencilState {
-                    //         front: stencil_state,
-                    //         back: stencil_state,
-                    //         // Applied to values being read from the buffer
-                    //         read_mask: 0xff,
-                    //         // Applied to values before being written to the buffer
-                    //         write_mask: 0xff,
-                    //     },
-                    // }),
+                    depth_stencil: 
+                    // None,
+                     Some(wgpu::DepthStencilState {
+                        format: texture::TextureBasic::DEPTH_FORMAT,
+                        depth_write_enabled: true,
+                        depth_compare: wgpu::CompareFunction::Less,
+                        bias: wgpu::DepthBiasState::default(),
+                        stencil: wgpu::StencilState {
+                            front: stencil_state,
+                            back: stencil_state,
+                            // Applied to values being read from the buffer
+                            read_mask: 0xff,
+                            // Applied to values before being written to the buffer
+                            write_mask: 0xff,
+                        },
+                    }),
                     multisample: wgpu::MultisampleState {
                         //TODO: What is multisampling?
                         count: 1,
@@ -298,26 +299,27 @@ impl RenderSystem {
                         unclipped_depth: false,
                         conservative: false,
                     },
-                    depth_stencil: None,
-                    //  Some(wgpu::DepthStencilState {
-                    //     format: texture::TextureBasic::DEPTH_FORMAT,
-                    //     depth_write_enabled: true,
-                    //     depth_compare: wgpu::CompareFunction::Less,
-                    //     bias: wgpu::DepthBiasState {
-                    //         // TODO: understand what this does
-                    //         constant: 1,
-                    //         slope_scale: 0.5,
-                    //         clamp: 1.,
-                    //     },
-                    //     stencil: wgpu::StencilState {
-                    //         front: stencil_state,
-                    //         back: stencil_state,
-                    //         // Applied to values being read from the buffer
-                    //         read_mask: 0xff,
-                    //         // Applied to values before being written to the buffer
-                    //         write_mask: 0xff,
-                    //     },
-                    // }),
+                    depth_stencil: 
+                    // None,
+                     Some(wgpu::DepthStencilState {
+                        format: texture::TextureBasic::DEPTH_FORMAT,
+                        depth_write_enabled: true,
+                        depth_compare: wgpu::CompareFunction::Less,
+                        bias: wgpu::DepthBiasState {
+                            // TODO: understand what this does
+                            constant: 1,
+                            slope_scale: 0.5,
+                            clamp: 1.,
+                        },
+                        stencil: wgpu::StencilState {
+                            front: stencil_state,
+                            back: stencil_state,
+                            // Applied to values being read from the buffer
+                            read_mask: 0xff,
+                            // Applied to values before being written to the buffer
+                            write_mask: 0xff,
+                        },
+                    }),
                     multisample: wgpu::MultisampleState {
                         //TODO: What is multisampling?
                         count: 1,
@@ -416,26 +418,27 @@ impl RenderSystem {
                         unclipped_depth: false,
                         conservative: false,
                     },
-                    depth_stencil: None,
-                    // Some(wgpu::DepthStencilState {
-                    //     format: texture::TextureBasic::DEPTH_FORMAT,
-                    //     depth_write_enabled: true,
-                    //     depth_compare: wgpu::CompareFunction::Less,
-                    //     bias: wgpu::DepthBiasState {
-                    //         // TODO: understand what this does
-                    //         constant: 1,
-                    //         slope_scale: 0.5,
-                    //         clamp: 1.,
-                    //     },
-                    //     stencil: wgpu::StencilState {
-                    //         front: stencil_state,
-                    //         back: stencil_state,
-                    //         // Applied to values being read from the buffer
-                    //         read_mask: 0xff,
-                    //         // Applied to values before being written to the buffer
-                    //         write_mask: 0xff,
-                    //     },
-                    // }),
+                    depth_stencil: 
+                    //None,
+                    Some(wgpu::DepthStencilState {
+                        format: texture::TextureBasic::DEPTH_FORMAT,
+                        depth_write_enabled: true,
+                        depth_compare: wgpu::CompareFunction::Less,
+                        bias: wgpu::DepthBiasState {
+                            // TODO: understand what this does
+                            constant: 1,
+                            slope_scale: 0.5,
+                            clamp: 1.,
+                        },
+                        stencil: wgpu::StencilState {
+                            front: stencil_state,
+                            back: stencil_state,
+                            // Applied to values being read from the buffer
+                            read_mask: 0xff,
+                            // Applied to values before being written to the buffer
+                            write_mask: 0xff,
+                        },
+                    }),
                     multisample: wgpu::MultisampleState {
                         //TODO: What is multisampling?
                         count: 1,
@@ -543,18 +546,19 @@ impl RenderSystem {
                         store: wgpu::StoreOp::Store,
                     },
                 })],
-                depth_stencil_attachment: None,
-                // Some(wgpu::RenderPassDepthStencilAttachment {
-                //     view: &self.depth_stencil.view,
-                //     depth_ops: Some(wgpu::Operations {
-                //         load: wgpu::LoadOp::Clear(1.0),
-                //         store: wgpu::StoreOp::Store,
-                //     }),
-                //     stencil_ops: Some(wgpu::Operations {
-                //         load: wgpu::LoadOp::Clear(0),
-                //         store: wgpu::StoreOp::Store,
-                //     }),
-                // }),
+                depth_stencil_attachment:
+                // None,
+                Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: &self.depth_stencil.view,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(1.0),
+                        store: wgpu::StoreOp::Store,
+                    }),
+                    stencil_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(0),
+                        store: wgpu::StoreOp::Store,
+                    }),
+                }),
                 occlusion_query_set: None,
                 timestamp_writes: None,
             });
@@ -631,18 +635,19 @@ impl RenderSystem {
                         store: wgpu::StoreOp::Store,
                     },
                 })],
-                depth_stencil_attachment: None,
-                //  Some(wgpu::RenderPassDepthStencilAttachment {
-                //     view: &self.depth_stencil.view,
-                //     depth_ops: Some(wgpu::Operations {
-                //         load: wgpu::LoadOp::Load,
-                //         store: wgpu::StoreOp::Store,
-                //     }),
-                //     stencil_ops: Some(wgpu::Operations {
-                //         load: wgpu::LoadOp::Load,
-                //         store: wgpu::StoreOp::Store,
-                //     }),
-                // }),
+                depth_stencil_attachment:
+                //  None,
+                 Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: &self.depth_stencil.view,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Load,
+                        store: wgpu::StoreOp::Store,
+                    }),
+                    stencil_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Load,
+                        store: wgpu::StoreOp::Store,
+                    }),
+                }),
                 occlusion_query_set: None,
                 timestamp_writes: None,
             });
