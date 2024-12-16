@@ -6,6 +6,7 @@ use crate::context;
 use crate::physics;
 use crate::sprite;
 use crate::texture;
+use crate::uniform;
 
 use std::sync::Arc;
 
@@ -18,13 +19,14 @@ pub struct State<'a> {
     pub sprite_sheets: Vec<Arc<sprite::SpriteSheet>>,
     pub position_components: component::EntityMap<component::PositionComponent>,
     pub camera: camera::OrthographicCamera,
-    pub world_uniform: component::WorldUniform,
+    pub world_uniform: uniform::WorldUniform,
     pub vertex_array_components: component::EntityMap<component::VertexArrayComponent>, // camera: camera::Camera,
     pub sprite_animation_controller_components:
         component::EntityMap<animation::SpriteAnimationControllerComponent>,
     pub sheet_position_components: component::EntityMap<sprite::SheetPositionComponent>,
     pub character_state_components: component::EntityMap<component::CharacterStateComponent>,
     pub collider_box_components: component::EntityMap<physics::ColliderBoxComponent>,
+    pub light_components: component::EntityMap<uniform::LightComponent>,
     // entities: Vec<component::Entity>,
 }
 
@@ -81,7 +83,7 @@ impl<'a> State<'a> {
             cgmath::Vector3::new(size.width as f32 / 2.0, size.height as f32 / 2.0, 1.0),
         );
 
-        let mut world_uniform = component::WorldUniform::new();
+        let mut world_uniform = uniform::WorldUniform::new();
         world_uniform.resize(size.width, size.height);
 
         let position_components = EntityMap::new();
@@ -90,6 +92,7 @@ impl<'a> State<'a> {
         let sheet_position_components = EntityMap::new();
         let character_state_components = EntityMap::new();
         let collider_box_components = EntityMap::new();
+        let light_components = EntityMap::new();
 
         // let entities = position_components
         //     .keys()
@@ -108,6 +111,7 @@ impl<'a> State<'a> {
             sheet_position_components,
             character_state_components,
             collider_box_components, // entities,
+            light_components,
         }
     }
 
@@ -121,6 +125,7 @@ impl<'a> State<'a> {
         sheet_position_component: Option<sprite::SheetPositionComponent>,
         character_state_component: Option<component::CharacterStateComponent>,
         collider_box_component: Option<physics::ColliderBoxComponent>,
+        light_component: Option<uniform::LightComponent>,
     ) -> component::Entity {
         let entity = self.position_components.insert(position_component);
         self.vertex_array_components.insert(vertex_array_component);
@@ -136,6 +141,8 @@ impl<'a> State<'a> {
 
         self.collider_box_components.insert(collider_box_component);
 
+        self.light_components.insert(light_component);
+
         // self.entities.push(entity);
 
         entity
@@ -148,6 +155,7 @@ impl<'a> State<'a> {
         self.sheet_position_components.remove(entity);
         self.character_state_components.remove(entity);
         self.collider_box_components.remove(entity);
+        self.light_components.remove(entity);
         // self.entities.
     }
 

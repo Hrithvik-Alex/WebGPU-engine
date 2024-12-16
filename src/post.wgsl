@@ -47,9 +47,8 @@ fn fs_main(in: Fragment) -> @location(0) vec4<f32> {
 
    var dist = length(n - vec2(0.5));
 
-    var radius = 0.5;
-    var softness = 0.02;
-    var vignette = smoothstep(radius, 0.2, dist); 
+    var radius = 0.9;
+    var vignette = smoothstep(0.2,1., dist / radius); 
     
     // var time: f32 = timeUniform.time;
 	// flicker, grain, vignette, fade in:
@@ -61,7 +60,7 @@ fn fs_main(in: Fragment) -> @location(0) vec4<f32> {
 	// c = dot(c, vec3(0.2126, 0.7152, 0.0722)) 
 	//   * vec3(0.2, 1.5 - hash(time) * 0.1,0.4);
 
-    return vec4<f32>(c ,1.);
+    return vec4<f32>(c * (1.-vignette),1.);
     // var intensity: f32 = (1.0f / 3.0f) * (color.r + color.g + color.b);
     // var purple: vec3<f32> = intensity * vec3<f32>(176.0 / 255.0, 105.0 / 255.0, 219.0 / 255.0);
     // return vec4<f32>(purple, 1.0) ;

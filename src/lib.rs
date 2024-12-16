@@ -9,6 +9,7 @@ mod render_system;
 mod sprite;
 mod state;
 mod texture;
+mod uniform;
 
 use log::debug;
 use physics::ColliderBoxComponent;
@@ -71,8 +72,8 @@ pub async fn run() {
         let position_component = component::PositionComponent {
             position: cgmath::Vector2::new(0., 0.),
             scale: cgmath::Vector2::new(
-                component::WorldUniform::WORLD_SCREEN_WIDTH as f32,
-                component::WorldUniform::WORLD_SCREEN_HEIGHT as f32,
+                uniform::WorldUniform::WORLD_SCREEN_WIDTH as f32,
+                uniform::WorldUniform::WORLD_SCREEN_HEIGHT as f32,
             ),
             is_controllable: false,
         };
@@ -89,13 +90,14 @@ pub async fn run() {
             None,
             None,
             None,
+            None,
         )
     };
 
     let ground = {
         let position_component = component::PositionComponent {
             position: cgmath::Vector2::new(0., 0.),
-            scale: cgmath::Vector2::new(component::WorldUniform::WORLD_SCREEN_WIDTH as f32, 100.),
+            scale: cgmath::Vector2::new(uniform::WorldUniform::WORLD_SCREEN_WIDTH as f32, 100.),
             is_controllable: false,
         };
 
@@ -117,8 +119,43 @@ pub async fn run() {
             None,
             None,
             Some(collider_box_component),
+            None,
         )
     };
+
+    let light = {
+        let position_component = component::PositionComponent {
+            position: cgmath::Vector2::new(0., 0.),
+            scale: cgmath::Vector2::new(30., 30.),
+            is_controllable: false,
+        };
+
+        let vertex_array_component: component::VertexArrayComponent =
+            component::VertexArrayComponent::circle(
+                2.,
+                component::VertexArrayComponent::FOREGROUND_Z,
+            );
+
+        let light_component = uniform::LightComponent {
+            intensity: 10.,
+            color: cgmath::Vector3 {
+                x: 0.0,
+                y: 0.0,
+                z: 1.0,
+            },
+        };
+
+        state.add_entity(
+            Some(position_component),
+            Some(vertex_array_component),
+            None,
+            None,
+            None,
+            None,
+            Some(light_component),
+        )
+    };
+
     // entity for player
     let character = {
         let position_component = component::PositionComponent {
@@ -188,6 +225,7 @@ pub async fn run() {
             Some(sheet_position_component),
             Some(character_state_component),
             Some(collider_box_component),
+            None,
         )
     };
 
@@ -258,6 +296,7 @@ pub async fn run() {
             Some(sheet_position_component),
             Some(character_state_component),
             Some(collider_box_component),
+            None,
         )
     };
 

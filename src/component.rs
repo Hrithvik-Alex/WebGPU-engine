@@ -1,6 +1,6 @@
-use cgmath::SquareMatrix;
+use std::f64;
+
 use slotmap::DenseSlotMap;
-use wgpu::util::DeviceExt;
 
 pub type Entity = slotmap::DefaultKey;
 pub type EntityMap<T> = DenseSlotMap<Entity, Option<T>>;
@@ -58,6 +58,39 @@ impl VertexArrayComponent {
         }
     }
 
+    pub fn circle(radius: f32, z_value: f32) -> Self {
+        const NUM_TRIANGLES: u32 = 8;
+
+        let center = cgmath::Vector2::new(radius, radius);
+        let mut vertices = vec![center];
+        let mut indices = vec![];
+
+        for i in 0..NUM_TRIANGLES {
+            let angle = (i as f64) * f64::consts::TAU / (NUM_TRIANGLES as f64);
+            let point_x = angle.cos();
+            let point_y = angle.sin();
+            vertices.push(center + cgmath::Vector2::new(point_x as f32, point_y as f32));
+
+            indices.push(0);
+            indices.push((i + 1) % 8 + 1);
+            indices.push(i + 1);
+        }
+
+        let whole_tex_coords: Vec<cgmath::Vector2<f32>> = vertices
+            .iter()
+            .map(|vertex| cgmath::Vector2::new(vertex.x, 1. - vertex.y))
+            .collect();
+
+        Self {
+            vertices,
+            indices,
+            tex_coords: whole_tex_coords.clone(),
+            whole_tex_coords,
+            texture_index: 999,
+            is_flipped: false,
+            z_value,
+        }
+    }
     // pub fn sprite_quad(
     //     sprite_sheet: Arc<SpriteSheet>,
     //     sheet_position: cgmath::Vector2<u32>,
@@ -90,59 +123,6 @@ impl PositionComponent {
             is_controllable: self.is_controllable,
         }
     }
-}
-
-#[repr(C)]
-// This is so we can store this in a buffer
-#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-pub struct WorldUniform {
-    mat: [[f32; 4]; 4],
-}
-
-// impl Component for WorldUniform {
-//     fn name(&self) -> String {
-//         "WorldUniform".to_string()
-//     }
-// }
-
-impl WorldUniform {
-    pub const WORLD_SCREEN_WIDTH: u32 = 640;
-    pub const WORLD_SCREEN_HEIGHT: u32 = 360;
-
-    pub fn new() -> Self {
-        Self {
-            mat: cgmath::Matrix4::identity().into(),
-        }
-    }
-
-    pub fn calc(&self, width: u32, height: u32) -> cgmath::Matrix4<f32> {
-        #[cfg_attr(rustfmt, rustfmt_skip)]
-         cgmath::Matrix4::new(
-            width as f32/Self::WORLD_SCREEN_WIDTH as f32, 0., 0., 0.,
-            0., height as f32/Self::WORLD_SCREEN_HEIGHT as f32, 0., 0.,
-            0., 0., 1., 0.,
-            0., 0., 0., 1.,
-        )
-    }
-
-    pub fn resize(&mut self, width: u32, height: u32) {
-        self.mat = self.calc(width, height).into();
-    }
-
-    pub fn get_buffer(&self, device: &wgpu::Device) -> wgpu::Buffer {
-        device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("ortho buffer"),
-            contents: bytemuck::cast_slice(&[self.mat]),
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        })
-    }
-}
-
-#[repr(C)]
-// This is so we can store this in a buffer
-#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-pub struct TimeUniform {
-    pub time: f32,
 }
 
 #[derive(Eq, Hash, PartialEq, Clone, Debug)]

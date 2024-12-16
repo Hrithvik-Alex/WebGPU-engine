@@ -7,6 +7,7 @@ use crate::context;
 use crate::model;
 use crate::model::Vertex;
 use crate::texture;
+use crate::uniform;
 use cgmath::num_traits::ToPrimitive;
 use cgmath::ElementWise;
 
@@ -33,7 +34,7 @@ impl RenderSystem {
     pub fn new(
         textures: &Vec<Arc<texture::Texture>>,
         context: &context::Context,
-        world_uniform: &component::WorldUniform,
+        world_uniform: &uniform::WorldUniform,
         camera: &camera::OrthographicCamera,
     ) -> Self {
         let camera_buffer = camera.get_buffer(&context.device);
@@ -543,7 +544,7 @@ impl RenderSystem {
             texture::TextureBasic::create_basic(&context.device, &context.config, "frame buffer");
 
 
-        let time_uniform = component::TimeUniform { time: (time_elapsed.as_millis() % u32::MAX as u128) as f32 };
+        let time_uniform = uniform::TimeUniform { time: (time_elapsed.as_millis() % u32::MAX as u128) as f32 };
         let time_buffer = context.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Time Uniform Buffer"),
             contents: bytemuck::cast_slice(&[time_uniform]),
