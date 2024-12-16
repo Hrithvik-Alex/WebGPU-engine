@@ -16,6 +16,7 @@ pub struct VertexArrayComponent {
     pub tex_coords: Vec<cgmath::Vector2<f32>>,
     pub texture_index: u32,
     pub is_flipped: bool,
+    pub z_value: f32,
 }
 
 impl Component for VertexArrayComponent {
@@ -25,7 +26,11 @@ impl Component for VertexArrayComponent {
 }
 
 impl VertexArrayComponent {
-    pub fn textured_quad(texture_index: u32) -> Self {
+    pub const BACKGROUND_Z: f32 = 2.0;
+    pub const FOREGROUND_Z: f32 = 1.0;
+    pub const OBJECT_Z: f32 = 0.5;
+
+    pub fn textured_quad(texture_index: u32, z_value: f32) -> Self {
         let vertices = vec![
             cgmath::Vector2::new(0.0, 1.0), // TOP-LEFT
             cgmath::Vector2::new(1.0, 1.0), // TOP-RIGHT
@@ -49,6 +54,7 @@ impl VertexArrayComponent {
             whole_tex_coords,
             texture_index,
             is_flipped: false,
+            z_value,
         }
     }
 
@@ -93,15 +99,15 @@ pub struct WorldUniform {
     mat: [[f32; 4]; 4],
 }
 
-impl Component for WorldUniform {
-    fn name(&self) -> String {
-        "WorldUniform".to_string()
-    }
-}
+// impl Component for WorldUniform {
+//     fn name(&self) -> String {
+//         "WorldUniform".to_string()
+//     }
+// }
 
 impl WorldUniform {
-    const WORLD_SCREEN_WIDTH: u32 = 640;
-    const WORLD_SCREEN_HEIGHT: u32 = 360;
+    pub const WORLD_SCREEN_WIDTH: u32 = 640;
+    pub const WORLD_SCREEN_HEIGHT: u32 = 360;
 
     pub fn new() -> Self {
         Self {
@@ -130,6 +136,13 @@ impl WorldUniform {
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         })
     }
+}
+
+#[repr(C)]
+// This is so we can store this in a buffer
+#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct TimeUniform {
+    pub time: f32,
 }
 
 #[derive(Eq, Hash, PartialEq, Clone, Debug)]

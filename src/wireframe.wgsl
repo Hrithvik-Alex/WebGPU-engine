@@ -39,7 +39,7 @@ var<storage, read> indices: array<u32>;
 
 
   let pNdx = index * 8; // modelvertex2d stride length
-  let position = vec4f(positions[pNdx], positions[pNdx + 1], 0.9, 1.0);
+  let position = vec4f(positions[pNdx], positions[pNdx + 1], 0.2, 1.0);
 
 
   var vOut: VertexOut;

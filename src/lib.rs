@@ -67,14 +67,43 @@ pub async fn run() {
         &state.camera,
     );
 
+    let bg1 = {
+        let position_component = component::PositionComponent {
+            position: cgmath::Vector2::new(0., 0.),
+            scale: cgmath::Vector2::new(
+                component::WorldUniform::WORLD_SCREEN_WIDTH as f32,
+                component::WorldUniform::WORLD_SCREEN_HEIGHT as f32,
+            ),
+            is_controllable: false,
+        };
+        let vertex_array_component: component::VertexArrayComponent =
+            component::VertexArrayComponent::textured_quad(
+                2,
+                component::VertexArrayComponent::BACKGROUND_Z,
+            );
+
+        state.add_entity(
+            Some(position_component),
+            Some(vertex_array_component),
+            None,
+            None,
+            None,
+            None,
+        )
+    };
+
     let ground = {
         let position_component = component::PositionComponent {
             position: cgmath::Vector2::new(0., 0.),
-            scale: cgmath::Vector2::new(640., 100.),
+            scale: cgmath::Vector2::new(component::WorldUniform::WORLD_SCREEN_WIDTH as f32, 100.),
             is_controllable: false,
         };
 
-        let vertex_array_component = component::VertexArrayComponent::textured_quad(999);
+        let vertex_array_component: component::VertexArrayComponent =
+            component::VertexArrayComponent::textured_quad(
+                999,
+                component::VertexArrayComponent::FOREGROUND_Z,
+            );
 
         let collider_box_component = ColliderBoxComponent {
             bottom_left: position_component.position,
@@ -100,7 +129,10 @@ pub async fn run() {
 
         let texture_index = 0; // warrior
 
-        let vertex_array_component = component::VertexArrayComponent::textured_quad(texture_index);
+        let vertex_array_component = component::VertexArrayComponent::textured_quad(
+            texture_index,
+            component::VertexArrayComponent::OBJECT_Z,
+        );
 
         let sprite_animation_idle = animation::SpriteAnimation {
             animation_index: 0,
@@ -168,7 +200,10 @@ pub async fn run() {
 
         let texture_index = 1; // warrior
 
-        let vertex_array_component = component::VertexArrayComponent::textured_quad(texture_index);
+        let vertex_array_component = component::VertexArrayComponent::textured_quad(
+            texture_index,
+            component::VertexArrayComponent::OBJECT_Z,
+        );
         let sprite_animation_idle = animation::SpriteAnimation {
             animation_index: 0,
             sprite_count: 10,
@@ -302,6 +337,7 @@ pub async fn run() {
                                 &textures,
                                 &state.context,
                                 true,
+                                current_time,
                             );
                             match render_result {
                                 Ok(_) => {}

@@ -1,5 +1,5 @@
 struct VertexInput {
-    @location(0) position: vec2<f32>,
+    @location(0) position: vec3<f32>,
     @location(1) tex_coords: vec2<f32>,
     @location(2) normal_coords: vec2<f32>,
     @location(3) texture: u32,
@@ -40,7 +40,7 @@ fn vs_main(
     var out: VertexOutput;
     out.tex_coords = model.tex_coords;
     out.normal_coords = model.normal_coords;
-    out.clip_position =  camera.view_proj * /*camera.view *  */  (world.matrix * vec4<f32>(model.position, 1.0, 1.0));
+    out.clip_position =  camera.view_proj * /*camera.view *  */  (world.matrix * vec4<f32>(model.position, 1.0));
     out.texture = model.texture;
     return out;
 }
@@ -59,6 +59,11 @@ var n_minotaur: texture_2d<f32>;
 @group(2) @binding(2)
 var s_minotaur: sampler;
 
+@group(3) @binding(0)
+var t_bg: texture_2d<f32>;
+@group(3) @binding(1)
+var s_bg: sampler;
+
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     var ambient_light_intensity = 0.2;
@@ -72,7 +77,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 
 
     var color: vec4<f32>;
-    var normal: vec4<f32>;
+    var normal: vec4<f32> = vec4(0.);
     switch in.texture {
         case 0u: {
             color = textureSample(t_character, s_character, in.tex_coords);
@@ -82,6 +87,10 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         case 1u: {
             color = textureSample(t_minotaur, s_character, in.tex_coords);
             normal = textureSample(n_minotaur, s_character, in.tex_coords);
+        }
+
+        case 2u: {
+            color = textureSample(t_bg, s_bg, in.tex_coords);
         }
         default: {
             color = vec4<f32>(1.0, 0.0, 0.0, 1.0);
@@ -94,7 +103,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     var light = diff_light + ambient_light_intensity;
 
     // var light1_final = dot(normal, light1_dir) * light1_color / light1_dist;
-    return color  * light;
+    return vec4<f32>(color.xyz  * light, color.w);
 }
  
  

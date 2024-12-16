@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::time::Duration;
 
 use crate::camera;
 use crate::component;
@@ -368,6 +369,15 @@ impl RenderSystem {
                             ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                             count: None,
                         },
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 2,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Buffer { 
+                                ty: wgpu::BufferBindingType::Uniform, 
+                                has_dynamic_offset: false, 
+                                min_binding_size: None },
+                            count: None
+                        }
                     ],
                 });
 
@@ -459,6 +469,7 @@ impl RenderSystem {
         textures: &Vec<Arc<texture::Texture>>,
         context: &context::Context,
         add_debug_pass: bool,
+        time_elapsed: Duration,
     ) -> Result<(), wgpu::SurfaceError> {
         // let mut all_vertices: Vec<ModelVertex2d> = vec![];
         // let mut all_indices: Vec<u32> = vec![];
@@ -485,14 +496,15 @@ impl RenderSystem {
                                     tex_coord
                                 };
 
+                                let twod_coords = ((vertex_pos.mul_element_wise(pos.scale))
+                                + pos.position);
+
                                 model::ModelVertex2d {
-                                    position: ((vertex_pos.mul_element_wise(pos.scale))
-                                        + pos.position)
+                                    position: cgmath::Vector3::new(twod_coords.x, twod_coords.y, vertex_array.z_value)
                                         .into(),
                                     tex_coords: final_tex_coord.into(),
                                     normal_coords: final_tex_coord.into(), // TODO: maybe have to flip something here?
                                     texture: vertex_array.texture_index,
-                                    padding: 0.,
                                 }
                             }),
                     );
@@ -529,6 +541,14 @@ impl RenderSystem {
 
         let frame_buffer =
             texture::TextureBasic::create_basic(&context.device, &context.config, "frame buffer");
+
+
+        let time_uniform = component::TimeUniform { time: (time_elapsed.as_millis() % u32::MAX as u128) as f32 };
+        let time_buffer = context.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Time Uniform Buffer"),
+            contents: bytemuck::cast_slice(&[time_uniform]),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        }); 
 
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -666,6 +686,10 @@ impl RenderSystem {
                             binding: 1,
                             resource: wgpu::BindingResource::Sampler(&frame_buffer.sampler),
                         },
+                        wgpu::BindGroupEntry {
+                            binding: 2,
+                            resource: time_buffer.as_entire_binding()
+                        }
                     ],
                 });
             render_pass.set_pipeline(&self.post_render_pipeline);

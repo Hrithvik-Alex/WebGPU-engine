@@ -53,7 +53,20 @@ impl<'a> State<'a> {
             true,
         ));
 
-        let sprite_sheets = vec![hero_sprite_sheet.clone(), minotaur_sprite_sheet.clone()];
+        let bg_sprite_sheet = Arc::new(sprite::SpriteSheet::new(
+            &context,
+            "./assets/world_layer_1.png".to_string(),
+            None,
+            640,
+            360,
+            true,
+        ));
+
+        let sprite_sheets = vec![
+            hero_sprite_sheet.clone(),
+            minotaur_sprite_sheet.clone(),
+            bg_sprite_sheet.clone(),
+        ];
 
         // let textures = sprite_sheets
         //     .iter()
