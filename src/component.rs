@@ -16,6 +16,7 @@ pub struct VertexArrayComponent {
     pub tex_coords: Vec<cgmath::Vector2<f32>>,
     pub texture_index: u32,
     pub is_flipped: bool,
+    // TODO: this should maybe be in positioncomponent
     pub z_value: f32,
 }
 

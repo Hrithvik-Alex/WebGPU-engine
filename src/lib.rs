@@ -125,14 +125,14 @@ pub async fn run() {
 
     let light = {
         let position_component = component::PositionComponent {
-            position: cgmath::Vector2::new(0., 0.),
+            position: cgmath::Vector2::new(100., 300.),
             scale: cgmath::Vector2::new(30., 30.),
             is_controllable: false,
         };
 
         let vertex_array_component: component::VertexArrayComponent =
             component::VertexArrayComponent::circle(
-                2.,
+                1.,
                 component::VertexArrayComponent::FOREGROUND_Z,
             );
 
@@ -373,6 +373,7 @@ pub async fn run() {
                             let render_result = render_system.render(
                                 &state.position_components,
                                 &state.vertex_array_components,
+                                &state.light_components,
                                 &textures,
                                 &state.context,
                                 true,

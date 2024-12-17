@@ -14,6 +14,7 @@ use cgmath::ElementWise;
 use cgmath::Vector2;
 use log::debug;
 use wgpu::util::DeviceExt;
+use wgpu::BindGroupDescriptor;
 
 pub struct RenderSystem {
     // positions: Vec<&'a component::PositionComponent>,
@@ -27,6 +28,7 @@ pub struct RenderSystem {
     post_render_pipeline: wgpu::RenderPipeline,
     post_bind_group_layout: wgpu::BindGroupLayout,
     uniform_bind_group: wgpu::BindGroup,
+    storage_bind_group_layout: wgpu::BindGroupLayout,
     depth_stencil: texture::TextureBasic,
 }
 
@@ -79,6 +81,7 @@ impl RenderSystem {
                 entries: &[
                     wgpu::BindGroupEntry {
                         binding: 0,
+
                         resource: wgpu::BindingResource::Buffer(
                             camera_buffer.as_entire_buffer_binding(),
                         ),
@@ -93,6 +96,33 @@ impl RenderSystem {
                 label: Some("camera bind group"),
             });
 
+
+        let storage_bind_group_layout = context.device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("storage bind group layout"),
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Storage { read_only: true },
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,     
+               },
+               wgpu::BindGroupLayoutEntry {
+                binding: 1,
+                visibility: wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,     
+           },
+            ]
+        });
+
         let shader: wgpu::ShaderModule =
             context
                 .device
@@ -101,7 +131,7 @@ impl RenderSystem {
                     source: wgpu::ShaderSource::Wgsl(include_str!("shader.wgsl").into()),
                 });
 
-        let mut bind_group_layouts: Vec<&wgpu::BindGroupLayout> = vec![&uniform_bind_group_layout];
+        let mut bind_group_layouts: Vec<&wgpu::BindGroupLayout> = vec![&uniform_bind_group_layout, &storage_bind_group_layout];
 
         bind_group_layouts.extend(textures.iter().map(|texture| &texture.bind_group_layout));
 
@@ -210,6 +240,7 @@ impl RenderSystem {
             post_render_pipeline,
             post_bind_group_layout,
             uniform_bind_group,
+            storage_bind_group_layout,
             depth_stencil,
         }
     }
@@ -467,6 +498,7 @@ impl RenderSystem {
         &self,
         positions: &component::EntityMap<component::PositionComponent>,
         vertex_arrays: &component::EntityMap<component::VertexArrayComponent>,
+        lights: &component::EntityMap<uniform::LightComponent>,
         textures: &Vec<Arc<texture::Texture>>,
         context: &context::Context,
         add_debug_pass: bool,
@@ -475,16 +507,17 @@ impl RenderSystem {
         // let mut all_vertices: Vec<ModelVertex2d> = vec![];
         // let mut all_indices: Vec<u32> = vec![];
 
-        let (all_vertices, all_indices, _) = positions
+        let (all_vertices, all_indices, light_uniforms, _) = positions
             .iter()
             .zip(vertex_arrays.iter())
             .filter_map(|((_, opt1), (_, opt2))| {
                 opt1.as_ref()
                     .and_then(|v1| opt2.as_ref().map(|v2| (v1, v2)))
-            })
+            }).zip(lights.iter())
             .fold(
-                (Vec::new(), Vec::new(), 0),
-                |(mut vertices, mut indices, i), (pos, vertex_array)| {
+                (Vec::new(), Vec::new(), Vec::new(), 0),
+                |(mut vertices, mut indices, mut light_uniforms, i), (( pos, vertex_array ), ( _,light ))| {
+                    let cur_len = vertices.len();
                     vertices.extend(
                         vertex_array
                             .vertices
@@ -509,14 +542,24 @@ impl RenderSystem {
                                 }
                             }),
                     );
-                    indices.extend(vertex_array.indices.iter().map(|index| 4 * i + index));
-                    (vertices, indices, i + 1)
+                    indices.extend(vertex_array.indices.iter().map(|index| cur_len as u32 + index));
+
+                    if let Some(light) = light {
+                        light_uniforms.push(uniform::LightUniform {
+                            position: cgmath::Vector3::new(pos.position.x, pos.position.y, vertex_array.z_value).into(),
+                            intensity: light.intensity,
+                            color: light.color.into(),
+                        });
+                    }
+
+                    (vertices, indices, light_uniforms, i + 1)
                 },
             );
 
         let num_vertices = all_vertices.len();
+        let num_indices = all_indices.len();
 
-        // debug!("{:?}", all_vertices);
+        debug!("{:?}", all_vertices);
         // debug!("{:?}", all_indices.len());
         let vertex_buffer = context
             .device
@@ -550,6 +593,33 @@ impl RenderSystem {
             contents: bytemuck::cast_slice(&[time_uniform]),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         }); 
+
+        let light_uniforms_buffer = context.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Light Uniforms Buffer"),
+            contents: bytemuck::cast_slice(&light_uniforms),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        }); 
+
+        let light_len_buffer = context.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Light Uniforms Buffer"),
+            contents: bytemuck::cast_slice(&[light_uniforms.len()]),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        }); 
+
+        let storage_bind_group = context.device.create_bind_group(&BindGroupDescriptor {
+            label: Some("storage bind group"),
+            layout: &self.storage_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: light_uniforms_buffer.as_entire_binding()
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: light_len_buffer.as_entire_binding()
+                }
+            ]
+        });
 
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -586,8 +656,9 @@ impl RenderSystem {
             render_pass.set_pipeline(&self.orig_render_pipeline);
 
             render_pass.set_bind_group(0, &self.uniform_bind_group, &[]);
+            render_pass.set_bind_group(1, &storage_bind_group, &[]);
             textures.iter().enumerate().for_each(|(index, texture)| {
-                render_pass.set_bind_group(index as u32 + 1, &texture.bind_group, &[]);
+                render_pass.set_bind_group(index as u32 + 2, &texture.bind_group, &[]);
             });
             render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
             render_pass.set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint32); // 1.
@@ -613,7 +684,7 @@ impl RenderSystem {
                         ],
                     });
             render_pass.set_bind_group(1, &wireframe_bind_group, &[]);
-            render_pass.draw(0..num_vertices as u32 * 3, 0..1); // TODO: slightly overdraws 6 instead of 5 edges per, maybe optimize?
+            render_pass.draw(0..num_indices as u32 * 2, 0..1); // TODO: slightly overdraws 6 instead of 5 edges per, maybe optimize?
         }
 
         let output = context.surface.get_current_texture()?;
