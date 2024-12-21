@@ -63,6 +63,7 @@ pub struct LightUniform {
     pub position: [f32; 3],
     pub intensity: f32,
     pub color: [f32; 3],
+    pub padding: f32,
 }
 
 pub struct LightComponent {

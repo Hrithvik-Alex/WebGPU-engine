@@ -137,11 +137,11 @@ pub async fn run() {
             );
 
         let light_component = uniform::LightComponent {
-            intensity: 10.,
+            intensity: 500.,
             color: cgmath::Vector3 {
-                x: 0.0,
+                x: 1.0,
                 y: 0.0,
-                z: 1.0,
+                z: 0.0,
             },
         };
 
@@ -301,6 +301,13 @@ pub async fn run() {
     };
 
     debug!("{:?}", state.vertex_array_components);
+    debug!(
+        "{:?}",
+        state.camera.get_matrix()
+            * state
+                .world_uniform
+                .calc(state.size.width, state.size.height) // * cgmath::vec4(100., 300., 0.5, 1.)
+    );
 
     let start_time = Instant::now();
     let mut frames = 0;

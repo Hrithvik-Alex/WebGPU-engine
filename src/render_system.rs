@@ -29,6 +29,7 @@ pub struct RenderSystem {
     post_bind_group_layout: wgpu::BindGroupLayout,
     uniform_bind_group: wgpu::BindGroup,
     storage_bind_group_layout: wgpu::BindGroupLayout,
+    texture_bind_group: wgpu::BindGroup,
     depth_stencil: texture::TextureBasic,
 }
 
@@ -53,7 +54,7 @@ impl RenderSystem {
                     entries: &[
                         wgpu::BindGroupLayoutEntry {
                             binding: 0,
-                            visibility: wgpu::ShaderStages::VERTEX,
+                            visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
                             ty: wgpu::BindingType::Buffer {
                                 ty: wgpu::BufferBindingType::Uniform,
                                 has_dynamic_offset: false,
@@ -63,7 +64,7 @@ impl RenderSystem {
                         },
                         wgpu::BindGroupLayoutEntry {
                             binding: 1,
-                            visibility: wgpu::ShaderStages::VERTEX,
+                            visibility: wgpu::ShaderStages::VERTEX  | wgpu::ShaderStages::FRAGMENT,
                             ty: wgpu::BindingType::Buffer {
                                 ty: wgpu::BufferBindingType::Uniform,
                                 has_dynamic_offset: false,
@@ -123,17 +124,92 @@ impl RenderSystem {
             ]
         });
 
-        let shader: wgpu::ShaderModule =
-            context
-                .device
-                .create_shader_module(wgpu::ShaderModuleDescriptor {
-                    label: Some("shader"),
-                    source: wgpu::ShaderSource::Wgsl(include_str!("shader.wgsl").into()),
+
+
+        let mut texture_bind_group_layout_entries = vec![
+            wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        // This should match the filterable field of the
+                        // corresponding Texture entry above.
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                        count: None,
+                    },
+        ];
+
+        let sampler = texture::TextureBasic::default_pixel_sampler(&context.device);
+
+        let mut texture_bind_group_entries = vec![
+            wgpu::BindGroupEntry {
+                binding: 0,
+                    resource: wgpu::BindingResource::Sampler(&sampler),
+                    },
+        ];
+
+        for i in 0..textures.len() {
+            let texture = &textures[i];
+            let cur_len = texture_bind_group_layout_entries.len() as u32;
+
+
+            texture_bind_group_layout_entries.push(wgpu::BindGroupLayoutEntry {
+                binding: cur_len,
+
+                visibility: wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Texture {
+                    multisampled: false,
+                    view_dimension: wgpu::TextureViewDimension::D2,
+                    sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                },
+                count: None,
+            });
+
+            texture_bind_group_entries.push(wgpu::BindGroupEntry {
+                        binding: cur_len,
+                        resource: wgpu::BindingResource::TextureView(&texture.view),
+                    });
+
+            if let Some((_, normal_view)) = &texture.normal_info {
+                texture_bind_group_layout_entries.push(wgpu::BindGroupLayoutEntry {
+                    binding: cur_len  + 1,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture {
+                        multisampled: false,
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                    },
+                    count: None,
+                }); 
+
+                texture_bind_group_entries.push(wgpu::BindGroupEntry {
+                    binding: cur_len + 1,
+                    resource: wgpu::BindingResource::TextureView(&normal_view),
                 });
+            }
+        }
 
-        let mut bind_group_layouts: Vec<&wgpu::BindGroupLayout> = vec![&uniform_bind_group_layout, &storage_bind_group_layout];
+        let texture_bind_group_layout = context.device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("texture bind group layout"),
+            entries: &texture_bind_group_layout_entries
+    });
 
-        bind_group_layouts.extend(textures.iter().map(|texture| &texture.bind_group_layout));
+    let texture_bind_group = context.device.create_bind_group(&wgpu::BindGroupDescriptor {
+        label: Some("texture bind group layout"),
+        layout: &texture_bind_group_layout,
+        entries: &texture_bind_group_entries
+});
+
+        
+        let bind_group_layouts: Vec<&wgpu::BindGroupLayout> = vec![&uniform_bind_group_layout, &storage_bind_group_layout, &texture_bind_group_layout];
+
+        // bind_group_layouts.extend(textures.iter().map(|texture| &texture.bind_group_layout));
+
+        let shader: wgpu::ShaderModule =
+        context
+            .device
+            .create_shader_module(wgpu::ShaderModuleDescriptor {
+                label: Some("shader"),
+                source: wgpu::ShaderSource::Wgsl(include_str!("shader.wgsl").into()),
+            }); 
 
         let render_pipeline_layout =
             context
@@ -241,6 +317,7 @@ impl RenderSystem {
             post_bind_group_layout,
             uniform_bind_group,
             storage_bind_group_layout,
+            texture_bind_group,
             depth_stencil,
         }
     }
@@ -538,7 +615,7 @@ impl RenderSystem {
                                         .into(),
                                     tex_coords: final_tex_coord.into(),
                                     normal_coords: final_tex_coord.into(), // TODO: maybe have to flip something here?
-                                    texture: vertex_array.texture_index,
+                                    extra_info: (vertex_array.texture_index + vertex_array.is_flipped as u32 * 256),
                                 }
                             }),
                     );
@@ -549,6 +626,7 @@ impl RenderSystem {
                             position: cgmath::Vector3::new(pos.position.x, pos.position.y, vertex_array.z_value).into(),
                             intensity: light.intensity,
                             color: light.color.into(),
+                            padding: 0.,
                         });
                     }
 
@@ -559,7 +637,8 @@ impl RenderSystem {
         let num_vertices = all_vertices.len();
         let num_indices = all_indices.len();
 
-        debug!("{:?}", all_vertices);
+        // debug!("{:?}", light_uniforms);
+        // debug!("{:?}", all_vertices);
         // debug!("{:?}", all_indices.len());
         let vertex_buffer = context
             .device
@@ -597,7 +676,7 @@ impl RenderSystem {
         let light_uniforms_buffer = context.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Light Uniforms Buffer"),
             contents: bytemuck::cast_slice(&light_uniforms),
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            usage: wgpu::BufferUsages::STORAGE,
         }); 
 
         let light_len_buffer = context.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -657,9 +736,9 @@ impl RenderSystem {
 
             render_pass.set_bind_group(0, &self.uniform_bind_group, &[]);
             render_pass.set_bind_group(1, &storage_bind_group, &[]);
-            textures.iter().enumerate().for_each(|(index, texture)| {
-                render_pass.set_bind_group(index as u32 + 2, &texture.bind_group, &[]);
-            });
+            render_pass.set_bind_group(2, &self.texture_bind_group, &[]);
+
+
             render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
             render_pass.set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint32); // 1.
             render_pass.draw_indexed(0..all_indices.len() as u32, 0, 0..1);

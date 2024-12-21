@@ -10,7 +10,11 @@ pub struct ModelVertex2d {
     pub position: [f32; 3],
     pub tex_coords: [f32; 2],
     pub normal_coords: [f32; 2],
-    pub texture: u32,
+
+    pub extra_info: u32,
+    // 00000000 00000000 000000f tttttttt
+    // f -> is_flipped?
+    // t -> 8 bit texture number
 }
 
 impl Vertex for ModelVertex2d {
