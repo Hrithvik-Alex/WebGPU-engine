@@ -624,9 +624,12 @@ impl RenderSystem {
                     if let Some(light) = light {
                         light_uniforms.push(uniform::LightUniform {
                             position: cgmath::Vector3::new(pos.position.x, pos.position.y, vertex_array.z_value).into(),
-                            intensity: light.intensity,
                             color: light.color.into(),
-                            padding: 0.,
+                            linear_dropoff: light.linear_dropoff,
+                            quadratic_dropoff: light.quadratic_dropoff,
+                            ambient_strength: light.ambient_strength,
+                            diffuse_strength: light.diffuse_strength,
+                            padding: [0.0,0.0]
                         });
                     }
 
@@ -680,10 +683,12 @@ impl RenderSystem {
         }); 
 
         let light_len_buffer = context.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Light Uniforms Buffer"),
+            label: Some("Light Len Buffer"),
             contents: bytemuck::cast_slice(&[light_uniforms.len()]),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         }); 
+
+        // debug!("{:?}", bytemuck::cast_slice::<uniform::LightUniform, f32>(&light_uniforms));
 
         let storage_bind_group = context.device.create_bind_group(&BindGroupDescriptor {
             label: Some("storage bind group"),

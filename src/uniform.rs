@@ -30,9 +30,9 @@ impl WorldUniform {
         #[cfg_attr(rustfmt, rustfmt_skip)]
          cgmath::Matrix4::new(
             width as f32/Self::WORLD_SCREEN_WIDTH as f32, 0., 0., 0.,
-            0., height as f32/Self::WORLD_SCREEN_HEIGHT as f32, 0., 0.,
+            0., -1. * height as f32/Self::WORLD_SCREEN_HEIGHT as f32, 0., 0.,
             0., 0., 1., 0.,
-            0., 0., 0., 1.,
+            0., height as f32, 0., 1.,
         )
     }
 
@@ -61,14 +61,20 @@ pub struct TimeUniform {
 #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct LightUniform {
     pub position: [f32; 3],
-    pub intensity: f32,
+    pub linear_dropoff: f32,
     pub color: [f32; 3],
-    pub padding: f32,
+    pub quadratic_dropoff: f32,
+    pub ambient_strength: f32,
+    pub diffuse_strength: f32,
+    pub padding: [f32; 2],
 }
 
 pub struct LightComponent {
-    pub intensity: f32,
     pub color: cgmath::Vector3<f32>,
+    pub linear_dropoff: f32,
+    pub quadratic_dropoff: f32,
+    pub ambient_strength: f32,
+    pub diffuse_strength: f32,
 }
 
 impl Component for LightComponent {

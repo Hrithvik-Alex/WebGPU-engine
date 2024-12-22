@@ -25,7 +25,7 @@ pub struct PhysicsSystem {
 }
 
 impl PhysicsSystem {
-    const MOVEMENT_SPEED: f32 = 50.;
+    const MOVEMENT_SPEED: f32 = 100.;
 
     pub fn new(tick_duration: Duration) -> Self {
         Self { tick_duration }

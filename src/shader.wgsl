@@ -48,8 +48,12 @@ fn vs_main(
 
 struct LightUniform {
     position: vec3<f32>,
-    intensity: f32,
+    linear_dropoff: f32,
     color: vec3<f32>,
+    quadratic_dropoff: f32,
+    ambient_strength: f32,
+    diffuse_strength: f32,
+    _padding: vec2<f32>
 };
 
 @group(1) @binding(0)
@@ -76,13 +80,8 @@ var t_bg: texture_2d<f32>;
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    var ambient_light_intensity = 0.0;
 
 
-    // var light1_pos = vec4<f32>(0.5,0.5,1.0,0.0);
-    // var light1_color = vec4<f32>(10000.0,0.0,0.0,0.0);
-    // var light1_dist = distance(light1_pos , in.clip_position);
-    // var light1_dir = normalize(light1_pos - in.clip_position);
 
 
     var color: vec4<f32>;
@@ -105,7 +104,8 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         }
 
         case 2u: {
-            color = textureSample(t_bg, pixel_sampler, in.tex_coords);
+            // color = textureSample(t_bg, pixel_sampler, in.tex_coords);
+            color = vec4(0.1,0.1,0.1,1);
             // normal = vec4(0.,0,1,0);
             // has_normal = true;
  
@@ -121,28 +121,36 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
                 // normal = vec4(normal.x, 0., 0., normal.w);
     }
 
+    var ambient_light_intensity = 0.2;
     var total_light = vec3(ambient_light_intensity);
+
 
     for(var i: u32 = 0; i < light_len; i++) {
         var light = light_uniforms[i];
 
         var light_pos =   (world.matrix * vec4<f32>(light.position, 1.0)); 
-        var light_dir = light_pos - in.world_position;
-        var light_mag = dot(select(vec4(.25), normalize(normal), has_normal), normalize(light_dir));
-        var light_str = light.intensity * max(light_mag, 0.);
+        var light_dir = light_pos - in.clip_position;
+        var light_mag = dot(normalize(normal), normalize(light_dir));
+        
         var dist = length(light_dir);
-        total_light += ( light_str * light.color / dist ) +  ( 0.2 * light.color / dist );;
+        var attenuation = 1. / (1.0 + light.linear_dropoff * dist + light.quadratic_dropoff * dist * dist);
+
+        var ambient = light.ambient_strength * light.color  * attenuation;
+        var diffuse = light.diffuse_strength * light.color  * attenuation * max(light_mag, 0.);
+        total_light += ambient + diffuse;
         // total_light += (light.intensity *  light.color / dist );
         // if(dist < 100) {
-        //     total_light += 1.0;
+        //     total_light += light.color;
         // }
+        // total_light += vec3(0.3,0.1,0.1);
     }
 
 
 
     // var light1_final = dot(normal, light1_dir) * light1_color / light1_dist;
-    return vec4<f32>(color.xyz + total_light, color.w);
-    // return vec4<f32>(total_light, color.w);
+    // return vec4<f32>(total_light, 1.);
+    // return in.world_position / 1000;
+    return vec4<f32>(color.xyz * total_light, color.w);
     // return normal;
 }
  

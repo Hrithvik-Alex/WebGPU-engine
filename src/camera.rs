@@ -254,7 +254,7 @@ impl OrthographicCamera {
         let c0r3 = f32::zero();
 
         let c1r0 = f32::zero();
-        let c1r1 = two / (top - bottom);
+        let c1r1 = -1. * two / (top - bottom);
         let c1r2 = f32::zero();
         let c1r3 = f32::zero();
 
@@ -264,7 +264,7 @@ impl OrthographicCamera {
         let c2r3 = f32::zero();
 
         let c3r0 = -(right + left) / (right - left);
-        let c3r1 = -(top + bottom) / (top - bottom);
+        let c3r1 = (top + bottom) / (top - bottom);
         let c3r2 = -(self.znear) / (self.zfar - self.znear);
         let c3r3 = f32::one();
 

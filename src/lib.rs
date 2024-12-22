@@ -70,7 +70,10 @@ pub async fn run() {
 
     let bg1 = {
         let position_component = component::PositionComponent {
-            position: cgmath::Vector2::new(0., 0.),
+            position: cgmath::Vector2::new(
+                uniform::WorldUniform::WORLD_SCREEN_WIDTH as f32 / 2.0,
+                uniform::WorldUniform::WORLD_SCREEN_HEIGHT as f32 / 2.0,
+            ),
             scale: cgmath::Vector2::new(
                 uniform::WorldUniform::WORLD_SCREEN_WIDTH as f32,
                 uniform::WorldUniform::WORLD_SCREEN_HEIGHT as f32,
@@ -96,7 +99,10 @@ pub async fn run() {
 
     let ground = {
         let position_component = component::PositionComponent {
-            position: cgmath::Vector2::new(0., 0.),
+            position: cgmath::Vector2::new(
+                uniform::WorldUniform::WORLD_SCREEN_WIDTH as f32 / 2.0,
+                50.,
+            ),
             scale: cgmath::Vector2::new(uniform::WorldUniform::WORLD_SCREEN_WIDTH as f32, 100.),
             is_controllable: false,
         };
@@ -108,8 +114,8 @@ pub async fn run() {
             );
 
         let collider_box_component = ColliderBoxComponent {
-            bottom_left: position_component.position,
-            top_right: position_component.position + position_component.scale,
+            bottom_left: position_component.position - position_component.scale / 2.0,
+            top_right: position_component.position + position_component.scale / 2.0,
         };
 
         state.add_entity(
@@ -125,19 +131,19 @@ pub async fn run() {
 
     let light = {
         let position_component = component::PositionComponent {
-            position: cgmath::Vector2::new(100., 300.),
+            position: cgmath::Vector2::new(100., 200.),
             scale: cgmath::Vector2::new(30., 30.),
             is_controllable: false,
         };
 
         let vertex_array_component: component::VertexArrayComponent =
-            component::VertexArrayComponent::circle(
-                1.,
-                component::VertexArrayComponent::FOREGROUND_Z,
-            );
+            component::VertexArrayComponent::circle(component::VertexArrayComponent::FOREGROUND_Z);
 
         let light_component = uniform::LightComponent {
-            intensity: 500.,
+            linear_dropoff: 0.001,
+            quadratic_dropoff: 0.0001,
+            ambient_strength: 3.,
+            diffuse_strength: 5.,
             color: cgmath::Vector3 {
                 x: 1.0,
                 y: 0.0,
@@ -156,10 +162,43 @@ pub async fn run() {
         )
     };
 
+    let light2 = {
+        let position_component = component::PositionComponent {
+            position: cgmath::Vector2::new(500., 200.),
+            scale: cgmath::Vector2::new(30., 30.),
+            is_controllable: false,
+        };
+
+        let vertex_array_component: component::VertexArrayComponent =
+            component::VertexArrayComponent::circle(component::VertexArrayComponent::FOREGROUND_Z);
+
+        let light_component = uniform::LightComponent {
+            linear_dropoff: 0.001,
+            quadratic_dropoff: 0.0001,
+            ambient_strength: 3.,
+            diffuse_strength: 5.,
+            color: cgmath::Vector3 {
+                x: 1.0,
+                y: 1.0,
+                z: 0.0,
+            },
+        };
+
+        state.add_entity(
+            Some(position_component),
+            Some(vertex_array_component),
+            None,
+            None,
+            None,
+            None,
+            Some(light_component),
+        )
+    };
+
     // entity for player
     let character = {
         let position_component = component::PositionComponent {
-            position: cgmath::Vector2::new(50., 100.),
+            position: cgmath::Vector2::new(82., 132.),
             scale: cgmath::Vector2::new(64., 64.),
             is_controllable: true,
         };
@@ -214,8 +253,8 @@ pub async fn run() {
         };
 
         let collider_box_component = ColliderBoxComponent {
-            bottom_left: position_component.position,
-            top_right: position_component.position + position_component.scale,
+            bottom_left: position_component.position - position_component.scale / 2.0,
+            top_right: position_component.position + position_component.scale / 2.0,
         };
 
         state.add_entity(
@@ -231,7 +270,7 @@ pub async fn run() {
 
     let minotaur = {
         let position_component = component::PositionComponent {
-            position: cgmath::Vector2::new(200., 100.),
+            position: cgmath::Vector2::new(232., 132.),
             scale: cgmath::Vector2::new(64., 64.),
             is_controllable: false,
         };
@@ -285,8 +324,8 @@ pub async fn run() {
         };
 
         let collider_box_component = ColliderBoxComponent {
-            bottom_left: position_component.position,
-            top_right: position_component.position + position_component.scale,
+            bottom_left: position_component.position - position_component.scale / 2.0,
+            top_right: position_component.position + position_component.scale / 2.0,
         };
 
         state.add_entity(
@@ -303,10 +342,11 @@ pub async fn run() {
     debug!("{:?}", state.vertex_array_components);
     debug!(
         "{:?}",
-        state.camera.get_matrix()
-            * state
-                .world_uniform
-                .calc(state.size.width, state.size.height) // * cgmath::vec4(100., 300., 0.5, 1.)
+        // state.camera.get_matrix() *
+        state
+            .world_uniform
+            .calc(state.size.width, state.size.height)
+            * cgmath::vec4(100., 300., 0.5, 1.)
     );
 
     let start_time = Instant::now();

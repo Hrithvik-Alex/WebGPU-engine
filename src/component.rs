@@ -33,10 +33,10 @@ impl VertexArrayComponent {
 
     pub fn textured_quad(texture_index: u32, z_value: f32) -> Self {
         let vertices = vec![
-            cgmath::Vector2::new(0.0, 1.0), // TOP-LEFT
-            cgmath::Vector2::new(1.0, 1.0), // TOP-RIGHT
-            cgmath::Vector2::new(0.0, 0.0), // BOTTOM-LEFT
-            cgmath::Vector2::new(1.0, 0.0), // BOTTOM-RIGHT
+            cgmath::Vector2::new(-0.5, 0.5),  // TOP-LEFT
+            cgmath::Vector2::new(0.5, 0.5),   // TOP-RIGHT
+            cgmath::Vector2::new(-0.5, -0.5), // BOTTOM-LEFT
+            cgmath::Vector2::new(0.5, -0.5),  // BOTTOM-RIGHT
         ];
 
         let indices = vec![0, 2, 3, 0, 3, 1];
@@ -59,10 +59,10 @@ impl VertexArrayComponent {
         }
     }
 
-    pub fn circle(radius: f32, z_value: f32) -> Self {
-        const NUM_TRIANGLES: u32 = 8;
+    pub fn circle(z_value: f32) -> Self {
+        const NUM_TRIANGLES: u32 = 32;
 
-        let center = cgmath::Vector2::new(radius, radius);
+        let center = cgmath::Vector2::new(0., 0.);
         let mut vertices = vec![center];
         let mut indices = vec![];
 
@@ -73,7 +73,7 @@ impl VertexArrayComponent {
             vertices.push(center + cgmath::Vector2::new(point_x as f32, point_y as f32));
 
             indices.push(0);
-            indices.push((i + 1) % 8 + 1);
+            indices.push((i + 1) % NUM_TRIANGLES + 1);
             indices.push(i + 1);
         }
 
