@@ -10,12 +10,13 @@ use egui_wgpu::wgpu::{CommandEncoder, Device, Queue, TextureFormat, TextureView}
 use egui_winit::winit::event::WindowEvent;
 use egui_winit::winit::window::Window;
 use egui_winit::State;
+use log::debug;
 
 use crate::context;
 
 pub struct Gui {
     pub context: Context,
-    state: State,
+    pub state: State,
     renderer: Renderer,
 }
 
@@ -88,7 +89,7 @@ impl Gui {
                 .anchor(Align2::LEFT_TOP, [0.0, 0.0])
                 .show(&ui, |mut ui| {
                     if ui.add(egui::Button::new("Click me")).clicked() {
-                        println!("PRESSED")
+                        debug!("PRESSED")
                     }
 
                     ui.label("Slider");
