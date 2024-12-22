@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use egui::epaint::Shadow;
-use egui::{Context, Visuals};
+use egui::{Align2, Context, Visuals};
 use egui_wgpu::Renderer;
 use egui_wgpu::ScreenDescriptor;
 
@@ -10,6 +10,8 @@ use egui_wgpu::wgpu::{CommandEncoder, Device, Queue, TextureFormat, TextureView}
 use egui_winit::winit::event::WindowEvent;
 use egui_winit::winit::window::Window;
 use egui_winit::State;
+
+use crate::context;
 
 pub struct Gui {
     pub context: Context,
@@ -63,18 +65,38 @@ impl Gui {
 
     pub fn draw(
         &mut self,
-        device: &Device,
-        queue: &Queue,
+        context: &context::Context,
         encoder: &mut CommandEncoder,
-        window: &Window,
+        window: Arc<Window>,
         window_surface_view: &TextureView,
-        screen_descriptor: ScreenDescriptor,
-        mut run_ui: impl FnMut(&Context),
+        // mut run_ui: impl FnMut(&Context),
     ) {
+        let screen_descriptor = ScreenDescriptor {
+            size_in_pixels: [context.config.width, context.config.height],
+            pixels_per_point: window.scale_factor() as f32,
+        };
         // self.state.set_pixels_per_point(window.scale_factor() as f32);
         let raw_input = self.state.take_egui_input(&window);
         let full_output = self.context.run(raw_input, |ui| {
-            run_ui(ui);
+            egui::Window::new("Streamline CFD")
+                // .vscroll(true)
+                .default_open(true)
+                .max_width(1000.0)
+                .max_height(800.0)
+                .default_width(800.0)
+                .resizable(true)
+                .anchor(Align2::LEFT_TOP, [0.0, 0.0])
+                .show(&ui, |mut ui| {
+                    if ui.add(egui::Button::new("Click me")).clicked() {
+                        println!("PRESSED")
+                    }
+
+                    ui.label("Slider");
+                    // ui.add(egui::Slider::new(_, 0..=120).text("age"));
+                    ui.end_row();
+
+                    // proto_scene.egui(ui);
+                });
         });
 
         self.state
@@ -85,10 +107,15 @@ impl Gui {
             .tessellate(full_output.shapes, full_output.pixels_per_point);
         for (id, image_delta) in &full_output.textures_delta.set {
             self.renderer
-                .update_texture(&device, &queue, *id, &image_delta);
+                .update_texture(&context.device, &context.queue, *id, &image_delta);
         }
-        self.renderer
-            .update_buffers(&device, &queue, encoder, &tris, &screen_descriptor);
+        self.renderer.update_buffers(
+            &context.device,
+            &context.queue,
+            encoder,
+            &tris,
+            &screen_descriptor,
+        );
         {
             let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {

@@ -12,6 +12,7 @@ use crate::uniform;
 use cgmath::num_traits::ToPrimitive;
 use cgmath::ElementWise;
 
+use egui_winit::winit::window::Window;
 use cgmath::Vector2;
 use log::debug;
 use wgpu::util::DeviceExt;
@@ -579,7 +580,8 @@ impl RenderSystem {
         lights: &component::EntityMap<uniform::LightComponent>,
         textures: &Vec<Arc<texture::Texture>>,
         context: &context::Context,
-        gui: &gui::Gui,
+        gui: &mut gui::Gui,
+        window: Arc<Window>,
         add_debug_pass: bool,
         time_elapsed: Duration,
     ) -> Result<(), wgpu::SurfaceError> {
@@ -794,16 +796,19 @@ impl RenderSystem {
         //     },
         //     frame_buffer.texture.size(),
         // );
+        let surface_view =&output
+             .texture
+             .create_view(&wgpu::TextureViewDescriptor::default()) ;
 
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Post Render Pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view:
-                    //  &frame_buffer_b.view,
-                    &output
-                        .texture
-                        .create_view(&wgpu::TextureViewDescriptor::default()),
+                     &surface_view,
+                    // &output
+                    //     .texture
+                    //     .create_view(&wgpu::TextureViewDescriptor::default()),
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load:
@@ -859,7 +864,14 @@ impl RenderSystem {
             render_pass.draw(0..6, 0..1);
         }
 
-        // gui.draw();
+
+        
+        gui.draw(
+            &context,
+            &mut encoder,
+            window,
+            &surface_view,
+        );
 
         // if add_debug_pass {
         //     let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
