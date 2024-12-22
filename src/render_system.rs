@@ -4,6 +4,7 @@ use std::time::Duration;
 use crate::camera;
 use crate::component;
 use crate::context;
+use crate::gui;
 use crate::model;
 use crate::model::Vertex;
 use crate::texture;
@@ -578,6 +579,7 @@ impl RenderSystem {
         lights: &component::EntityMap<uniform::LightComponent>,
         textures: &Vec<Arc<texture::Texture>>,
         context: &context::Context,
+        gui: &gui::Gui,
         add_debug_pass: bool,
         time_elapsed: Duration,
     ) -> Result<(), wgpu::SurfaceError> {
@@ -665,9 +667,11 @@ impl RenderSystem {
                 label: Some("Render Encoder"),
             });
 
-        let frame_buffer =
-            texture::TextureBasic::create_basic(&context.device, &context.config, "frame buffer");
+        let frame_buffer_a =
+            texture::TextureBasic::create_basic(&context.device, &context.config, "frame buffer a");
 
+            let frame_buffer_b =
+            texture::TextureBasic::create_basic(&context.device, &context.config, "frame buffer b");
 
         let time_uniform = uniform::TimeUniform { time: (time_elapsed.as_millis() % u32::MAX as u128) as f32 };
         let time_buffer = context.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -709,7 +713,7 @@ impl RenderSystem {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Original Render Pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &frame_buffer.view,
+                    view: &frame_buffer_a.view,
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color {
@@ -795,7 +799,9 @@ impl RenderSystem {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Post Render Pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &output
+                    view:
+                    //  &frame_buffer_b.view,
+                    &output
                         .texture
                         .create_view(&wgpu::TextureViewDescriptor::default()),
                     resolve_target: None,
@@ -836,11 +842,11 @@ impl RenderSystem {
                     entries: &[
                         wgpu::BindGroupEntry {
                             binding: 0,
-                            resource: wgpu::BindingResource::TextureView(&frame_buffer.view),
+                            resource: wgpu::BindingResource::TextureView(&frame_buffer_a.view),
                         },
                         wgpu::BindGroupEntry {
                             binding: 1,
-                            resource: wgpu::BindingResource::Sampler(&frame_buffer.sampler),
+                            resource: wgpu::BindingResource::Sampler(&frame_buffer_a.sampler),
                         },
                         wgpu::BindGroupEntry {
                             binding: 2,
@@ -852,6 +858,8 @@ impl RenderSystem {
             render_pass.set_bind_group(0, &bind_group, &[]);
             render_pass.draw(0..6, 0..1);
         }
+
+        // gui.draw();
 
         // if add_debug_pass {
         //     let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {

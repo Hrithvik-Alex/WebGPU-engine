@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::component::Component;
 use log::debug;
 use winit::window::Window;
@@ -16,7 +18,7 @@ impl<'a> Component for Context<'a> {
 }
 
 impl<'a> Context<'a> {
-    pub async fn new(window: &'a Window) -> Self {
+    pub async fn new(window: Arc<Window>) -> Self {
         let size = window.inner_size();
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
             #[cfg(not(target_arch = "wasm32"))]
