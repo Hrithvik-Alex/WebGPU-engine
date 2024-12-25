@@ -11,6 +11,7 @@ mod sprite;
 mod state;
 mod texture;
 mod uniform;
+mod utils;
 
 use egui_winit::winit;
 use egui_winit::winit::{
@@ -106,6 +107,7 @@ impl<'a> ApplicationHandler for App<'a> {
                     &state.input_handler,
                     &mut state.position_components,
                     &mut state.collider_box_components,
+                    &mut state.metadata_components,
                 );
 
                 self.ticks_elapsed -= state::State::FIXED_UPDATE_DURATION;
@@ -118,7 +120,7 @@ impl<'a> ApplicationHandler for App<'a> {
             animation::AnimationSystem::update_animations(
                 &mut state.sprite_animation_controller_components,
                 &mut state.sheet_position_components,
-                &state.character_state_components,
+                &mut state.character_state_components,
                 delta_time,
             );
 
@@ -156,6 +158,7 @@ impl<'a> ApplicationHandler for App<'a> {
                             &state.position_components,
                             &state.vertex_array_components,
                             &state.light_components,
+                            &state.metadata_components,
                             &textures,
                             &state.context,
                             &mut state.gui,
@@ -189,6 +192,7 @@ impl<'a> ApplicationHandler for App<'a> {
                         &mut state.position_components,
                         &mut state.character_state_components,
                         &mut state.vertex_array_components,
+                        &mut state.metadata_components,
                     ),
 
                     _ => {}

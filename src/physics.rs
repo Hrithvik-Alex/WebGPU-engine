@@ -3,8 +3,9 @@ use std::time::Duration;
 use cgmath::Vector2;
 
 use crate::{
-    component::{Component, EntityMap, PositionComponent},
+    component::{self, Component, EntityMap, PositionComponent},
     input::InputHandler,
+    utils,
 };
 
 pub struct ColliderBoxComponent {
@@ -43,18 +44,22 @@ impl PhysicsSystem {
         input_handler: &InputHandler,
         position_components: &mut EntityMap<PositionComponent>,
         collider_box_components: &mut EntityMap<ColliderBoxComponent>,
+        metadata_components: &mut component::EntityMap<component::MetadataComponent>,
     ) {
         let tick_secs = self.tick_duration.as_secs_f32();
         let mut update_position = |x: f32, y: f32| {
             let delta = cgmath::Vector2::new(x, y) * Self::MOVEMENT_SPEED * tick_secs;
-            let collider_deltas = position_components
-                .iter_mut()
-                .zip(collider_box_components.iter())
-                .map(|((_, position_component), (e1, collider_box_component1))| {
+            let collider_deltas = utils::zip3_entities_1mut(
+                position_components,
+                collider_box_components,
+                metadata_components,
+            )
+            .map(
+                |(e1, position_component, collider_box_component1, metadata_component)| {
                     let Some(position_component) = position_component else {
                         return cgmath::Vector2::new(0., 0.);
                     };
-                    if !position_component.is_controllable {
+                    if !metadata_component.as_ref().unwrap().is_controllable() {
                         return cgmath::Vector2::new(0., 0.);
                     };
 
@@ -81,8 +86,9 @@ impl PhysicsSystem {
                     }
                     position_component.position += delta_add;
                     delta_add
-                })
-                .collect::<Vec<Vector2<f32>>>();
+                },
+            )
+            .collect::<Vec<Vector2<f32>>>();
 
             // rust limitation of mutable references so I need to do this :(( maybe I can use itertools?
             collider_deltas

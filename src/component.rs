@@ -106,7 +106,6 @@ impl VertexArrayComponent {
 pub struct PositionComponent {
     pub position: cgmath::Vector2<f32>,
     pub scale: cgmath::Vector2<f32>,
-    pub is_controllable: bool,
 }
 
 impl Component for PositionComponent {
@@ -121,7 +120,6 @@ impl PositionComponent {
         Self {
             position: self.position - scale / 2.,
             scale: self.scale + scale / 2.,
-            is_controllable: self.is_controllable,
         }
     }
 }
@@ -141,5 +139,41 @@ pub struct CharacterStateComponent {
 impl Component for CharacterStateComponent {
     fn name(&self) -> String {
         return "Position".to_string();
+    }
+}
+
+#[derive(Debug)]
+pub struct MetadataComponent {
+    // 00000000 00000000 00000000 000000co
+    // o -> should_outline
+    // c -> is_controllable
+    flags: u32,
+}
+
+impl Component for MetadataComponent {
+    fn name(&self) -> String {
+        return "Metadata".to_string();
+    }
+}
+
+impl MetadataComponent {
+    pub fn new(should_outline: bool, is_controllable: bool) -> Self {
+        let mut flags: u32 = 0;
+        if should_outline {
+            flags |= 1;
+        }
+        if is_controllable {
+            flags |= 2;
+        }
+
+        Self { flags }
+    }
+
+    pub fn should_outline(&self) -> bool {
+        self.flags & 1 > 0
+    }
+
+    pub fn is_controllable(&self) -> bool {
+        self.flags & 2 > 0
     }
 }

@@ -34,6 +34,7 @@ pub struct State<'a> {
     pub character_state_components: component::EntityMap<component::CharacterStateComponent>,
     pub collider_box_components: component::EntityMap<physics::ColliderBoxComponent>,
     pub light_components: component::EntityMap<uniform::LightComponent>,
+    pub metadata_components: component::EntityMap<component::MetadataComponent>,
     // entities: Vec<component::Entity>,
 
     // systems
@@ -117,6 +118,7 @@ impl<'a> State<'a> {
         let character_state_components = EntityMap::new();
         let collider_box_components = EntityMap::new();
         let light_components = EntityMap::new();
+        let metadata_components = EntityMap::new();
 
         // let entities = position_components
         //     .keys()
@@ -148,6 +150,7 @@ impl<'a> State<'a> {
             character_state_components,
             collider_box_components, // entities,
             light_components,
+            metadata_components,
             input_handler,
             render_system,
             physics_system,
@@ -165,13 +168,14 @@ impl<'a> State<'a> {
                     uniform::WorldUniform::WORLD_SCREEN_WIDTH as f32,
                     uniform::WorldUniform::WORLD_SCREEN_HEIGHT as f32,
                 ),
-                is_controllable: false,
             };
             let vertex_array_component: component::VertexArrayComponent =
                 component::VertexArrayComponent::textured_quad(
                     2,
                     component::VertexArrayComponent::BACKGROUND_Z,
                 );
+
+            let metadata_component = component::MetadataComponent::new(false, false);
 
             self.add_entity(
                 Some(position_component),
@@ -181,6 +185,7 @@ impl<'a> State<'a> {
                 None,
                 None,
                 None,
+                Some(metadata_component),
             )
         };
 
@@ -191,7 +196,6 @@ impl<'a> State<'a> {
                     50.,
                 ),
                 scale: cgmath::Vector2::new(uniform::WorldUniform::WORLD_SCREEN_WIDTH as f32, 100.),
-                is_controllable: false,
             };
 
             let vertex_array_component: component::VertexArrayComponent =
@@ -205,6 +209,8 @@ impl<'a> State<'a> {
                 top_right: position_component.position + position_component.scale / 2.0,
             };
 
+            let metadata_component = component::MetadataComponent::new(false, false);
+
             self.add_entity(
                 Some(position_component),
                 Some(vertex_array_component),
@@ -213,6 +219,7 @@ impl<'a> State<'a> {
                 None,
                 Some(collider_box_component),
                 None,
+                Some(metadata_component),
             )
         };
 
@@ -220,7 +227,6 @@ impl<'a> State<'a> {
             let position_component = component::PositionComponent {
                 position: cgmath::Vector2::new(100., 200.),
                 scale: cgmath::Vector2::new(30., 30.),
-                is_controllable: false,
             };
 
             let vertex_array_component: component::VertexArrayComponent =
@@ -240,6 +246,8 @@ impl<'a> State<'a> {
                 },
             };
 
+            let metadata_component = component::MetadataComponent::new(false, false);
+
             self.add_entity(
                 Some(position_component),
                 Some(vertex_array_component),
@@ -248,6 +256,7 @@ impl<'a> State<'a> {
                 None,
                 None,
                 Some(light_component),
+                Some(metadata_component),
             )
         };
 
@@ -255,7 +264,6 @@ impl<'a> State<'a> {
             let position_component = component::PositionComponent {
                 position: cgmath::Vector2::new(500., 200.),
                 scale: cgmath::Vector2::new(30., 30.),
-                is_controllable: false,
             };
 
             let vertex_array_component: component::VertexArrayComponent =
@@ -274,6 +282,7 @@ impl<'a> State<'a> {
                     z: 0.0,
                 },
             };
+            let metadata_component = component::MetadataComponent::new(false, false);
 
             self.add_entity(
                 Some(position_component),
@@ -283,6 +292,7 @@ impl<'a> State<'a> {
                 None,
                 None,
                 Some(light_component),
+                Some(metadata_component),
             )
         };
 
@@ -291,7 +301,6 @@ impl<'a> State<'a> {
             let position_component = component::PositionComponent {
                 position: cgmath::Vector2::new(82., 132.),
                 scale: cgmath::Vector2::new(64., 64.),
-                is_controllable: true,
             };
 
             let texture_index = 0; // warrior
@@ -349,6 +358,8 @@ impl<'a> State<'a> {
                 top_right: position_component.position + position_component.scale / 2.0,
             };
 
+            let metadata_component = component::MetadataComponent::new(true, true);
+
             self.add_entity(
                 Some(position_component),
                 Some(vertex_array_component),
@@ -357,6 +368,7 @@ impl<'a> State<'a> {
                 Some(character_state_component),
                 Some(collider_box_component),
                 None,
+                Some(metadata_component),
             )
         };
 
@@ -364,7 +376,6 @@ impl<'a> State<'a> {
             let position_component = component::PositionComponent {
                 position: cgmath::Vector2::new(232., 132.),
                 scale: cgmath::Vector2::new(64., 64.),
-                is_controllable: false,
             };
 
             let texture_index = 1; // warrior
@@ -421,6 +432,8 @@ impl<'a> State<'a> {
                 top_right: position_component.position + position_component.scale / 2.0,
             };
 
+            let metadata_component = component::MetadataComponent::new(true, false);
+
             self.add_entity(
                 Some(position_component),
                 Some(vertex_array_component),
@@ -429,6 +442,7 @@ impl<'a> State<'a> {
                 Some(character_state_component),
                 Some(collider_box_component),
                 None,
+                Some(metadata_component),
             )
         };
 
@@ -452,6 +466,7 @@ impl<'a> State<'a> {
         character_state_component: Option<component::CharacterStateComponent>,
         collider_box_component: Option<physics::ColliderBoxComponent>,
         light_component: Option<uniform::LightComponent>,
+        metadata_component: Option<component::MetadataComponent>,
     ) -> component::Entity {
         let entity = self.position_components.insert(position_component);
         self.vertex_array_components.insert(vertex_array_component);
@@ -469,6 +484,8 @@ impl<'a> State<'a> {
 
         self.light_components.insert(light_component);
 
+        assert!(metadata_component.is_some());
+        self.metadata_components.insert(metadata_component);
         // self.entities.push(entity);
 
         entity
@@ -482,6 +499,7 @@ impl<'a> State<'a> {
         self.character_state_components.remove(entity);
         self.collider_box_components.remove(entity);
         self.light_components.remove(entity);
+        self.metadata_components.remove(entity);
         // self.entities.
     }
 

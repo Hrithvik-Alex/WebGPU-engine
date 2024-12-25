@@ -1,4 +1,7 @@
-use crate::component::{self, CharacterStateComponent, PositionComponent};
+use crate::{
+    component::{self, CharacterStateComponent, PositionComponent},
+    utils,
+};
 
 use std::time::Duration;
 
@@ -33,36 +36,42 @@ impl InputHandler {
         position_components: &mut component::EntityMap<PositionComponent>,
         character_state_components: &mut component::EntityMap<component::CharacterStateComponent>,
         vertex_array_components: &mut component::EntityMap<component::VertexArrayComponent>,
+        metadata_components: &mut component::EntityMap<component::MetadataComponent>,
     ) {
         let mut update_state = |state: component::CharacterState, is_flipped: Option<bool>| {
-            // debug!("{:?}", state);
-            position_components
-                .iter_mut()
-                .zip(character_state_components.iter_mut())
-                .zip(vertex_array_components.iter_mut())
-                .for_each(
-                    |(
-                        ((_, position_component), (_, character_state_component)),
-                        (_, vertex_array_component),
-                    )| {
-                        match position_component {
-                            Some(position_component) if position_component.is_controllable => {
-                                if let Some(character_state_component) =
-                                    character_state_component.as_mut()
-                                {
-                                    character_state_component.character_state = state.clone();
-                                }
-
-                                if let (Some(is_flipped), Some(vertex_array_component)) =
-                                    (is_flipped, vertex_array_component)
-                                {
-                                    vertex_array_component.is_flipped = is_flipped;
-                                }
+            utils::zip4_entities_mut(
+                position_components,
+                character_state_components,
+                vertex_array_components,
+                metadata_components,
+            )
+            .for_each(
+                |(
+                    _,
+                    position_component,
+                    character_state_component,
+                    vertex_array_component,
+                    metadata_component,
+                )| {
+                    let metadata_component = metadata_component.as_ref().unwrap();
+                    match position_component {
+                        Some(position_component) if metadata_component.is_controllable() => {
+                            if let Some(character_state_component) =
+                                character_state_component.as_mut()
+                            {
+                                character_state_component.character_state = state.clone();
                             }
-                            _ => (),
+
+                            if let (Some(is_flipped), Some(vertex_array_component)) =
+                                (is_flipped, vertex_array_component)
+                            {
+                                vertex_array_component.is_flipped = is_flipped;
+                            }
                         }
-                    },
-                );
+                        _ => (),
+                    }
+                },
+            );
             // let position = state.sprite.get_position();
 
             // state.sprite.update_position(position + delta)

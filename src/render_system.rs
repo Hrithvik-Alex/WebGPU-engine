@@ -6,9 +6,12 @@ use crate::component;
 use crate::context;
 use crate::gui;
 use crate::model;
+use crate::model::ModelVertex2d;
 use crate::model::Vertex;
 use crate::texture;
 use crate::uniform;
+use crate::uniform::LightUniform;
+use crate::utils;
 use cgmath::num_traits::ToPrimitive;
 use cgmath::ElementWise;
 
@@ -286,33 +289,29 @@ impl RenderSystem {
         }
     }
 
-    pub fn render(
-        &self,
+    fn get_vertex_and_lighting_data(
         positions: &component::EntityMap<component::PositionComponent>,
         vertex_arrays: &component::EntityMap<component::VertexArrayComponent>,
         lights: &component::EntityMap<uniform::LightComponent>,
-        textures: &Vec<Arc<texture::Texture>>,
-        context: &context::Context,
-        gui: &mut gui::Gui,
-        window: Arc<Window>,
-        add_debug_pass: bool,
-        time_elapsed: Duration,
-    ) -> Result<(), wgpu::SurfaceError> {
-        // let mut all_vertices: Vec<ModelVertex2d> = vec![];
-        // let mut all_indices: Vec<u32> = vec![];
-
-        let (all_vertices, all_indices, light_uniforms, _) = positions
-            .iter()
-            .zip(vertex_arrays.iter())
-            .filter_map(|((_, opt1), (_, opt2))| {
-                opt1.as_ref()
-                    .and_then(|v1| opt2.as_ref().map(|v2| (v1, v2)))
+        metadata_components: &component::EntityMap<component::MetadataComponent>,
+    ) -> (Vec<ModelVertex2d>, Vec<u32>, Vec<LightUniform>, usize) {
+        utils::zip4_entities(positions, vertex_arrays, lights, metadata_components)
+            .filter_map(|(e, pos, vertex_array, light, metadata_component)| {
+                pos.as_ref().and_then(|pos| {
+                    vertex_array.as_ref().map(|vertex_array| {
+                        (
+                            pos,
+                            vertex_array,
+                            light,
+                            metadata_component.as_ref().unwrap(),
+                        )
+                    })
+                })
             })
-            .zip(lights.iter())
             .fold(
                 (Vec::new(), Vec::new(), Vec::new(), 0),
                 |(mut vertices, mut indices, mut light_uniforms, i),
-                 ((pos, vertex_array), (_, light))| {
+                 (pos, vertex_array, light, metadata_component)| {
                     let cur_len = vertices.len();
                     vertices.extend(
                         vertex_array
@@ -327,7 +326,7 @@ impl RenderSystem {
                                 };
 
                                 let twod_coords =
-                                    ((vertex_pos.mul_element_wise(pos.scale)) + pos.position);
+                                    (vertex_pos.mul_element_wise(pos.scale)) + pos.position;
 
                                 model::ModelVertex2d {
                                     position: cgmath::Vector3::new(
@@ -369,7 +368,31 @@ impl RenderSystem {
 
                     (vertices, indices, light_uniforms, i + 1)
                 },
-            );
+            )
+    }
+
+    pub fn render(
+        &self,
+        positions: &component::EntityMap<component::PositionComponent>,
+        vertex_arrays: &component::EntityMap<component::VertexArrayComponent>,
+        lights: &component::EntityMap<uniform::LightComponent>,
+        metadata_components: &component::EntityMap<component::MetadataComponent>,
+        textures: &Vec<Arc<texture::Texture>>,
+        context: &context::Context,
+        gui: &mut gui::Gui,
+        window: Arc<Window>,
+        add_debug_pass: bool,
+        time_elapsed: Duration,
+    ) -> Result<(), wgpu::SurfaceError> {
+        // let mut all_vertices: Vec<ModelVertex2d> = vec![];
+        // let mut all_indices: Vec<u32> = vec![];
+
+        let (all_vertices, all_indices, light_uniforms, _) = Self::get_vertex_and_lighting_data(
+            positions,
+            vertex_arrays,
+            lights,
+            metadata_components,
+        );
 
         let num_vertices = all_vertices.len();
         let num_indices = all_indices.len();
@@ -746,7 +769,7 @@ impl RenderSystem {
                 &context,
                 &render_pipeline_layout,
                 &wireframe_shader,
-                Some(Self::STANDARD_STENCIL_STATE),
+                None,
                 &[],
                 Some(wgpu::PrimitiveTopology::LineList),
             ),

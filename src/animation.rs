@@ -1,6 +1,6 @@
 use std::{collections::HashMap, time::Duration};
 
-use crate::{component, sprite::SheetPositionComponent};
+use crate::{component, sprite::SheetPositionComponent, utils};
 
 pub struct SpriteAnimation {
     pub animation_index: u32,
@@ -49,39 +49,42 @@ impl AnimationSystem {
             SpriteAnimationControllerComponent,
         >,
         sheet_position_components: &mut component::EntityMap<SheetPositionComponent>,
-        character_state_components: &component::EntityMap<component::CharacterStateComponent>,
+        character_state_components: &mut component::EntityMap<component::CharacterStateComponent>,
         delta_time: Duration,
     ) {
-        sprite_animation_controller_components
-            .iter_mut()
-            .zip(sheet_position_components.iter_mut())
-            .zip(character_state_components.iter())
-            .for_each(
-                |(
-                    ((_, sprite_animation_controller), (_, sheet_position_component)),
-                    (_, character_state_component),
-                )| {
-                    if let (
-                        Some(sprite_animation_controller),
-                        Some(sheet_position_component),
-                        Some(character_state_component),
-                    ) = (
-                        sprite_animation_controller,
-                        sheet_position_component,
-                        character_state_component,
-                    ) {
-                        let sprite_animation = sprite_animation_controller
-                            .animation_map
-                            .get_mut(&character_state_component.character_state);
-                        if let Some(sprite_animation) = sprite_animation {
-                            sprite_animation.update(delta_time);
+        utils::zip3_entities_mut(
+            sprite_animation_controller_components,
+            sheet_position_components,
+            character_state_components,
+        )
+        .for_each(
+            |(
+                _,
+                sprite_animation_controller,
+                sheet_position_component,
+                character_state_component,
+            )| {
+                if let (
+                    Some(sprite_animation_controller),
+                    Some(sheet_position_component),
+                    Some(character_state_component),
+                ) = (
+                    sprite_animation_controller,
+                    sheet_position_component,
+                    character_state_component,
+                ) {
+                    let sprite_animation = sprite_animation_controller
+                        .animation_map
+                        .get_mut(&character_state_component.character_state);
+                    if let Some(sprite_animation) = sprite_animation {
+                        sprite_animation.update(delta_time);
 
-                            sheet_position_component.sheet_position = sheet_position_component
-                                .sprite_sheet
-                                .get_position_by_index(sprite_animation.get_sheet_index());
-                        }
+                        sheet_position_component.sheet_position = sheet_position_component
+                            .sprite_sheet
+                            .get_position_by_index(sprite_animation.get_sheet_index());
                     }
-                },
-            );
+                }
+            },
+        );
     }
 }
