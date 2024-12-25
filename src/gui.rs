@@ -78,26 +78,35 @@ impl Gui {
         };
         // self.state.set_pixels_per_point(window.scale_factor() as f32);
         let raw_input = self.state.take_egui_input(&window);
-        let full_output = self.context.run(raw_input, |ui| {
-            egui::Window::new("Streamline CFD")
-                // .vscroll(true)
-                .default_open(true)
-                .max_width(1000.0)
-                .max_height(800.0)
-                .default_width(800.0)
-                .resizable(true)
-                .anchor(Align2::LEFT_TOP, [0.0, 0.0])
-                .show(&ui, |mut ui| {
-                    if ui.add(egui::Button::new("Click me")).clicked() {
-                        debug!("PRESSED")
-                    }
+        let full_output = self.context.run(raw_input, |ctx| {
+            egui::Area::new(egui::Id::new("title"))
+                .movable(false)
+                .anchor(Align2::CENTER_TOP, [0.0, 10.0])
+                .show(&ctx, |mut ui| ui.label("Halex"));
+            // egui::Label::new("Halex").show(ctx, |ui| {
+            //     ui.label("Halex")
+            //     // .background_color(Color32::from_black_alpha(0));
+            // });
 
-                    ui.label("Slider");
-                    // ui.add(egui::Slider::new(_, 0..=120).text("age"));
-                    ui.end_row();
+            // egui::Window::new("Streamline CFD")
+            //     // .vscroll(true)
+            //     .default_open(true)
+            //     .max_width(1000.0)
+            //     .max_height(800.0)
+            //     .default_width(800.0)
+            //     .resizable(true)
+            //     .anchor(Align2::LEFT_TOP, [0.0, 0.0])
+            //     .show(&ctx, |mut ui| {
+            //         // if ui.add(egui::Button::new("Click me")).clicked() {
+            //         //     debug!("PRESSED")
+            //         // }
 
-                    // proto_scene.egui(ui);
-                });
+            //         // ui.label("Slider");
+            //         // // ui.add(egui::Slider::new(_, 0..=120).text("age"));
+            //         // ui.end_row();
+
+            //         // proto_scene.egui(ui);
+            //     });
         });
 
         self.state
