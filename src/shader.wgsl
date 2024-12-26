@@ -82,8 +82,6 @@ var t_bg: texture_2d<f32>;
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 
 
-
-
     var color: vec4<f32>;
     var normal: vec4<f32> = vec4(0.);
 
@@ -114,6 +112,10 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
             color = vec4<f32>(1.0, 0.0, 0.0, 1.0);
         }
     }
+   if (color.w == 0 ) {
+    discard;
+   }
+
 
     if (is_flipped && has_normal) {
         normal = vec4((1. - normal.x) * normal.w, normal.y, normal.z, normal.w);
@@ -145,9 +147,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         // total_light += vec3(0.3,0.1,0.1);
     }
 
-
-
-    // var light1_final = dot(normal, light1_dir) * light1_color / light1_dist;
+     // var light1_final = dot(normal, light1_dir) * light1_color / light1_dist;
     // return vec4<f32>(total_light, 1.);
     // return in.world_position / 1000;
     return vec4<f32>(color.xyz * total_light, color.w);

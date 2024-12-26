@@ -75,7 +75,10 @@ impl<'a> ApplicationHandler for App<'a> {
         }
         let window = Arc::new(
             event_loop
-                .create_window(Window::default_attributes())
+                .create_window(
+                    Window::default_attributes()
+                        .with_inner_size(winit::dpi::LogicalSize::new(768, 500)),
+                )
                 .unwrap(),
         );
         let mut state = pollster::block_on(state::State::new(window.clone())); // (1)

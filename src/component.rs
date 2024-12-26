@@ -1,5 +1,7 @@
 use std::f64;
 
+use cgmath::ElementWise;
+use log::debug;
 use slotmap::DenseSlotMap;
 
 pub type Entity = slotmap::DefaultKey;
@@ -102,7 +104,7 @@ impl VertexArrayComponent {
     // }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PositionComponent {
     pub position: cgmath::Vector2<f32>,
     pub scale: cgmath::Vector2<f32>,
@@ -115,12 +117,16 @@ impl Component for PositionComponent {
 }
 
 impl PositionComponent {
-    pub fn scale_outward(&self, scale: cgmath::Vector2<f32>) -> Self {
+    pub fn scale_outward(&mut self, scale: cgmath::Vector2<f32>) {
         assert!(scale.x >= 1. && scale.y >= 1.);
-        Self {
-            position: self.position - scale / 2.,
-            scale: self.scale + scale / 2.,
-        }
+        let old_scale = self.scale;
+        self.scale = self.scale.mul_element_wise(scale);
+        // let old_position = self.position;
+        // self.position = self.position - (self.scale - old_scale) / 2.;
+        // debug!(
+        //     "{:?} {:?} {:?} {:?}",
+        //     old_scale, self.scale, old_position, self.position
+        // );
     }
 }
 

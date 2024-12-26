@@ -20,6 +20,7 @@ use egui_winit::winit::window::Window;
 use log::debug;
 use wgpu::util::DeviceExt;
 use wgpu::BindGroupDescriptor;
+use wgpu::BufferSlice;
 use wgpu::StencilState;
 
 pub struct RenderSystem {
@@ -29,6 +30,7 @@ pub struct RenderSystem {
     // context: &'a context::Context<'a>,
     orig_render_pipeline: wgpu::RenderPipeline,
     debug_render_pipeline: wgpu::RenderPipeline,
+    // debug_bind_group_layout: wgpu::PipelineLayout,
     wireframe_render_pipeline: wgpu::RenderPipeline,
     wireframe_bind_group_layout: wgpu::BindGroupLayout,
     post_render_pipeline: wgpu::RenderPipeline,
@@ -36,6 +38,9 @@ pub struct RenderSystem {
     uniform_bind_group: wgpu::BindGroup,
     storage_bind_group_layout: wgpu::BindGroupLayout,
     texture_bind_group: wgpu::BindGroup,
+
+    stencil_compute_pipeline: wgpu::ComputePipeline,
+    stencil_compute_bind_group_layout: wgpu::BindGroupLayout,
     depth_stencil: texture::TextureBasic,
 }
 
@@ -54,6 +59,10 @@ impl RenderSystem {
         // Applied to values before being written to the buffer
         write_mask: 0xff,
     };
+
+    const OUTLINE_SCALE_FACTOR: f32 = 1.1;
+    const WORKGROUP_SIZE_X: u32 = 8;
+    const WORKGROUP_SIZE_Y: u32 = 8;
 
     pub fn new(
         textures: &Vec<Arc<texture::Texture>>,
@@ -254,16 +263,6 @@ impl RenderSystem {
             None,
         );
 
-        let debug_render_pipeline = Self::create_pipeline(
-            "Debug Render Pipeline",
-            &context,
-            &render_pipeline_layout,
-            &shader,
-            Some(Self::STANDARD_STENCIL_STATE),
-            &[model::ModelVertex2d::desc()],
-            None,
-        );
-
         let depth_stencil = texture::TextureBasic::create_depth_texture(
             &context.device,
             &context.config,
@@ -275,9 +274,19 @@ impl RenderSystem {
 
         let (post_render_pipeline, post_bind_group_layout) = Self::create_post_pipeline(context);
 
+        let (debug_render_pipeline) = Self::create_debug_pipeline(
+            context,
+            &uniform_bind_group_layout,
+            &texture_bind_group_layout,
+        );
+
+        let (stencil_compute_pipeline, stencil_compute_bind_group_layout) =
+            Self::create_stencil_compute_pipeline(context);
+
         Self {
             orig_render_pipeline,
             debug_render_pipeline,
+            // debug_bind_group_layout,
             wireframe_render_pipeline,
             wireframe_bind_group_layout,
             post_render_pipeline,
@@ -285,8 +294,52 @@ impl RenderSystem {
             uniform_bind_group,
             storage_bind_group_layout,
             texture_bind_group,
+            stencil_compute_pipeline,
+            stencil_compute_bind_group_layout,
             depth_stencil,
         }
+    }
+
+    fn get_vertices_for_entity<'a>(
+        pos: &'a component::PositionComponent,
+        vertex_array: &'a component::VertexArrayComponent,
+        cur_len: usize,
+    ) -> (
+        impl Iterator<Item = ModelVertex2d> + 'a,
+        impl Iterator<Item = u32> + 'a,
+    ) {
+        (
+            vertex_array
+                .vertices
+                .iter()
+                .zip(vertex_array.tex_coords.iter())
+                .map(|(vertex_pos, &tex_coord)| {
+                    let final_tex_coord = if vertex_array.is_flipped {
+                        Vector2::new(1. - tex_coord.x, tex_coord.y)
+                    } else {
+                        tex_coord
+                    };
+
+                    let twod_coords = (vertex_pos.mul_element_wise(pos.scale)) + pos.position;
+
+                    model::ModelVertex2d {
+                        position: cgmath::Vector3::new(
+                            twod_coords.x,
+                            twod_coords.y,
+                            vertex_array.z_value,
+                        )
+                        .into(),
+                        tex_coords: final_tex_coord.into(),
+                        normal_coords: final_tex_coord.into(), // TODO: maybe have to flip something here?
+                        extra_info: (vertex_array.texture_index
+                            + vertex_array.is_flipped as u32 * 256),
+                    }
+                }),
+            vertex_array
+                .indices
+                .iter()
+                .map(move |index| cur_len.clone() as u32 + index),
+        )
     }
 
     fn get_vertex_and_lighting_data(
@@ -313,41 +366,10 @@ impl RenderSystem {
                 |(mut vertices, mut indices, mut light_uniforms, i),
                  (pos, vertex_array, light, metadata_component)| {
                     let cur_len = vertices.len();
-                    vertices.extend(
-                        vertex_array
-                            .vertices
-                            .iter()
-                            .zip(vertex_array.tex_coords.iter())
-                            .map(|(vertex_pos, &tex_coord)| {
-                                let final_tex_coord = if vertex_array.is_flipped {
-                                    Vector2::new(1. - tex_coord.x, tex_coord.y)
-                                } else {
-                                    tex_coord
-                                };
-
-                                let twod_coords =
-                                    (vertex_pos.mul_element_wise(pos.scale)) + pos.position;
-
-                                model::ModelVertex2d {
-                                    position: cgmath::Vector3::new(
-                                        twod_coords.x,
-                                        twod_coords.y,
-                                        vertex_array.z_value,
-                                    )
-                                    .into(),
-                                    tex_coords: final_tex_coord.into(),
-                                    normal_coords: final_tex_coord.into(), // TODO: maybe have to flip something here?
-                                    extra_info: (vertex_array.texture_index
-                                        + vertex_array.is_flipped as u32 * 256),
-                                }
-                            }),
-                    );
-                    indices.extend(
-                        vertex_array
-                            .indices
-                            .iter()
-                            .map(|index| cur_len as u32 + index),
-                    );
+                    let (entity_vertices, entity_indices) =
+                        Self::get_vertices_for_entity(pos, vertex_array, cur_len);
+                    vertices.extend(entity_vertices);
+                    indices.extend(entity_indices);
 
                     if let Some(light) = light {
                         light_uniforms.push(uniform::LightUniform {
@@ -541,16 +563,14 @@ impl RenderSystem {
 
         let output = context.surface.get_current_texture()?;
 
-        let surface_view = &output
-            .texture
-            .create_view(&wgpu::TextureViewDescriptor::default());
+        let surface_tex = &output.texture;
+        let surface_view = surface_tex.create_view(&wgpu::TextureViewDescriptor::default());
 
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Post Render Pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view:
-                     &surface_view,
+                    view: &surface_view,
                     // &output
                     //     .texture
                     //     .create_view(&wgpu::TextureViewDescriptor::default()),
@@ -567,19 +587,18 @@ impl RenderSystem {
                         store: wgpu::StoreOp::Store,
                     },
                 })],
-                depth_stencil_attachment:
-                //  None,
-                 Some(wgpu::RenderPassDepthStencilAttachment {
-                    view: &self.depth_stencil.view,
-                    depth_ops: Some(wgpu::Operations {
-                        load: wgpu::LoadOp::Load,
-                        store: wgpu::StoreOp::Store,
-                    }),
-                    stencil_ops: Some(wgpu::Operations {
-                        load: wgpu::LoadOp::Load,
-                        store: wgpu::StoreOp::Store,
-                    }),
-                }),
+                depth_stencil_attachment: None,
+                //  Some(wgpu::RenderPassDepthStencilAttachment {
+                //     view: &self.depth_stencil.view,
+                //     depth_ops: Some(wgpu::Operations {
+                //         load: wgpu::LoadOp::Load,
+                //         store: wgpu::StoreOp::Store,
+                //     }),
+                //     stencil_ops: Some(wgpu::Operations {
+                //         load: wgpu::LoadOp::Load,
+                //         store: wgpu::StoreOp::Store,
+                //     }),
+                // }),
                 occlusion_query_set: None,
                 timestamp_writes: None,
             });
@@ -609,46 +628,359 @@ impl RenderSystem {
             render_pass.draw(0..6, 0..1);
         }
 
-        // if add_debug_pass {
-        //     let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-        //         label: Some("Debug Render Pass"),
-        //         color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-        //             view: &view,
-        //             resolve_target: None,
-        //             ops: wgpu::Operations {
-        //                 load: wgpu::LoadOp::Clear(wgpu::Color {
-        //                     r: 0.0,
-        //                     g: 0.0,
-        //                     b: 0.0,
-        //                     a: 1.0,
-        //                 }),
-        //                 store: wgpu::StoreOp::Store,
-        //             },
-        //         })],
-        //         depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-        //             view: &self.depth_stencil.view,
-        //             depth_ops: Some(wgpu::Operations {
-        //                 load: wgpu::LoadOp::Clear(1.0),
-        //                 store: wgpu::StoreOp::Store,
-        //             }),
-        //             stencil_ops: Some(wgpu::Operations {
-        //                 load: wgpu::LoadOp::Clear(0),
-        //                 store: wgpu::StoreOp::Store,
-        //             }),
-        //         }),
-        //         occlusion_query_set: None,
-        //         timestamp_writes: None,
-        //     });
+        // let width = surface_tex.width();
+        // let height = surface_tex.height();
 
-        //     render_pass.set_pipeline(&self.debug_render_pipeline);
-        // }
+        // let width_div_4_256_aligned = (((width) + 255) / 256) * 256 / 4;
+        // let emtpy_array_r = (0..(width_div_4_256_aligned * height))
+        //     .map(|_| 0 as u32)
+        //     .collect::<Vec<u32>>();
+        // let read_buffer = context
+        //     .device
+        //     .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        //         label: Some("Intermediate Stencil Compute Buffer map"),
+        //         contents: bytemuck::cast_slice(&emtpy_array_r),
+        //         usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
+        //     });
+        if add_debug_pass {
+            let (outline_vertices, outline_indices) =
+                utils::zip3_entities(positions, vertex_arrays, metadata_components)
+                    .filter_map(|(_, pos, vertex_array, metadata)| {
+                        pos.as_ref().and_then(|pos| {
+                            vertex_array.as_ref().and_then(|vertex_array| {
+                                metadata.as_ref().unwrap().should_outline().then(|| {
+                                    let mut new_pos = pos.clone();
+                                    new_pos.scale_outward(cgmath::Vector2::new(
+                                        Self::OUTLINE_SCALE_FACTOR,
+                                        Self::OUTLINE_SCALE_FACTOR,
+                                    ));
+                                    (new_pos, vertex_array)
+                                })
+                            })
+                        })
+                    })
+                    .fold(
+                        (Vec::new(), Vec::new()),
+                        |(mut vertices, mut indices), (pos, vertex_array)| {
+                            let cur_len = vertices.len();
+                            let (v, i) = Self::get_vertices_for_entity(&pos, vertex_array, cur_len);
+                            vertices.extend(v);
+                            indices.extend(i);
+                            (vertices, indices)
+                        },
+                    );
+
+            // debug!("{:?}", all_vertices);
+            // debug!("{:?}", outline_vertices);
+
+            let debug_vertex_buffer =
+                context
+                    .device
+                    .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                        label: Some("Vertex Buffer"),
+                        contents: bytemuck::cast_slice(&outline_vertices),
+                        usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::STORAGE,
+                    });
+
+            let debug_index_buffer =
+                context
+                    .device
+                    .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                        label: Some("Index Buffer"),
+                        contents: bytemuck::cast_slice(&outline_indices),
+                        usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::STORAGE,
+                    });
+
+            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("Debug Render Pass"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &surface_view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Load,
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: &self.depth_stencil.view,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(1.0),
+                        store: wgpu::StoreOp::Store,
+                    }),
+                    stencil_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Load,
+                        store: wgpu::StoreOp::Store,
+                    }),
+                }),
+                occlusion_query_set: None,
+                timestamp_writes: None,
+            });
+
+            render_pass.set_pipeline(&self.debug_render_pipeline);
+            render_pass.set_bind_group(0, &self.uniform_bind_group, &[]);
+            render_pass.set_bind_group(1, &self.texture_bind_group, &[]);
+            render_pass.set_stencil_reference(1);
+            render_pass.set_vertex_buffer(0, debug_vertex_buffer.slice(..));
+            render_pass.set_index_buffer(debug_index_buffer.slice(..), wgpu::IndexFormat::Uint32); // 1.
+            render_pass.draw_indexed(0..outline_indices.len() as u32, 0, 0..1);
+        }
+        // let buffer = self.debug_stencil(context, &mut encoder, surface_tex);
+
+        // encoder.copy_buffer_to_buffer(
+        //     &buffer,
+        //     0,
+        //     &read_buffer,
+        //     0,
+        //     (width_div_4_256_aligned * height) as u64,
+        // );
+
+        // encoder.copy_texture_to_buffer(
+        //     wgpu::ImageCopyTexture {
+        //         texture: &self.depth_stencil.texture,
+        //         mip_level: 0,
+        //         origin: wgpu::Origin3d::ZERO,
+        //         aspect: wgpu::TextureAspect::StencilOnly,
+        //     },
+        //     wgpu::ImageCopyBuffer {
+        //         buffer: &read_buffer,
+        //         layout: wgpu::ImageDataLayout {
+        //             offset: 0,
+        //             bytes_per_row: Some(
+        //                 width_div_4_256_aligned * 4 * std::mem::size_of::<u8>() as u32,
+        //             ),
+        //             rows_per_image: Some(height),
+        //         },
+        //     },
+        //     wgpu::Extent3d {
+        //         width,
+        //         height,
+        //         depth_or_array_layers: 1,
+        //     },
+        // );
 
         gui.draw(&context, &mut encoder, window, &surface_view);
 
         context.queue.submit(std::iter::once(encoder.finish()));
         output.present();
 
+        // let buffer_slice = read_buffer.slice(..);
+        // let (sender, receiver) = flume::bounded(1);
+
+        // buffer_slice.map_async(wgpu::MapMode::Read, move |v| sender.send(v).unwrap());
+
+        // context
+        //     .device
+        //     .poll(wgpu::Maintain::wait())
+        //     .panic_on_timeout();
+
+        // if let Ok(Ok(())) = pollster::block_on(receiver.recv_async()) {
+        //     // Gets contents of buffer
+        //     let data = buffer_slice.get_mapped_range();
+        //     // Since contents are got in bytes, this converts these bytes back to u32
+        //     let result: Vec<u8> = bytemuck::cast_slice(&data).to_vec();
+        //     debug!("{:?}", width_div_4_256_aligned);
+        //     debug!("{:?}", result.iter().skip(4800).position(|&x| x == 0));
+        //     debug!("{:?}", &result[6400..8000]);
+        //     debug!("{:?}", result.iter().filter(|&&v| v == 0).count());
+        //     debug!("{:?}", result.iter().filter(|&&v| v == 1).count());
+        //     debug!("{:?}", result.iter().filter(|&&v| v == 2).count());
+        //     debug!("{:?}", result.iter().filter(|&&v| v == 3).count());
+        //     debug!("{:?}", result.iter().filter(|&&v| v == 4).count());
+        //     // With the current interface, we have to make sure all mapped views are
+        //     // dropped before we unmap the buffer.
+        //     drop(data);
+        // } else {
+        //     panic!("failed to run compute on gpu!")
+        // }
+
         Ok(())
+    }
+
+    // WARNING: only works when width is a multiple of 256, and since its debug not worth to make this work generally right now.
+    fn debug_stencil(
+        &self,
+        context: &context::Context,
+        encoder: &mut wgpu::CommandEncoder,
+        surface_tex: &wgpu::Texture,
+    ) -> wgpu::Buffer {
+        let width = surface_tex.width();
+        let height = surface_tex.height();
+
+        let width_div_4_256_aligned = (((width) + 255) / 256) * 256 / 4;
+        let emtpy_array_r = (0..(width_div_4_256_aligned * height))
+            .map(|_| 0 as u32)
+            .collect::<Vec<u32>>();
+        let buffer_r = context
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Intermediate Stencil Compute Buffer read"),
+                contents: bytemuck::cast_slice(&emtpy_array_r),
+                usage: wgpu::BufferUsages::COPY_SRC
+                    | wgpu::BufferUsages::COPY_DST
+                    | wgpu::BufferUsages::STORAGE,
+            });
+        // debug!("size: {:?}", self.depth_stencil.texture.format());
+
+        encoder.copy_texture_to_buffer(
+            wgpu::ImageCopyTexture {
+                texture: &self.depth_stencil.texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d::ZERO,
+                aspect: wgpu::TextureAspect::StencilOnly,
+            },
+            wgpu::ImageCopyBuffer {
+                buffer: &buffer_r,
+                layout: wgpu::ImageDataLayout {
+                    offset: 0,
+                    bytes_per_row: Some(
+                        width_div_4_256_aligned * 4 * std::mem::size_of::<u8>() as u32,
+                    ),
+                    rows_per_image: Some(height),
+                },
+            },
+            wgpu::Extent3d {
+                width,
+                height,
+                depth_or_array_layers: 1,
+            },
+        );
+
+        let width_256_aligned = (((width * 4) + 255) / 256) * 256 / 4;
+        let emtpy_array_w = (0..(width_256_aligned * height))
+            .map(|_| 0 as u32)
+            .collect::<Vec<u32>>();
+        let buffer_w = context
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Intermediate Stencil Compute Buffer write"),
+                contents: bytemuck::cast_slice(&emtpy_array_w),
+                usage: wgpu::BufferUsages::COPY_SRC
+                    | wgpu::BufferUsages::COPY_DST
+                    | wgpu::BufferUsages::STORAGE,
+            });
+
+        let bind_group = context
+            .device
+            .create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("Stencil compute bind group"),
+                layout: &self.stencil_compute_bind_group_layout,
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: wgpu::BindingResource::Buffer(
+                            buffer_r.as_entire_buffer_binding(),
+                        ),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: wgpu::BindingResource::Buffer(
+                            buffer_w.as_entire_buffer_binding(),
+                        ),
+                    },
+                ],
+            });
+        {
+            let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+                label: Some("depth stencil compute pass"),
+                timestamp_writes: None,
+            });
+
+            compute_pass.set_pipeline(&self.stencil_compute_pipeline);
+            compute_pass.set_bind_group(0, &bind_group, &[]);
+            compute_pass.dispatch_workgroups(
+                width / Self::WORKGROUP_SIZE_X + 1,
+                height / Self::WORKGROUP_SIZE_Y + 1,
+                1,
+            );
+        }
+
+        encoder.copy_buffer_to_texture(
+            wgpu::ImageCopyBuffer {
+                buffer: &buffer_w,
+                layout: wgpu::ImageDataLayout {
+                    offset: 0,
+                    bytes_per_row: Some(width_256_aligned * std::mem::size_of::<u32>() as u32),
+                    rows_per_image: Some(height),
+                },
+            },
+            wgpu::ImageCopyTexture {
+                texture: &surface_tex,
+                mip_level: 0,
+                origin: wgpu::Origin3d::ZERO,
+                aspect: wgpu::TextureAspect::All,
+            },
+            wgpu::Extent3d {
+                width,
+                height,
+                depth_or_array_layers: 1,
+            },
+        );
+
+        buffer_r
+    }
+
+    fn create_stencil_compute_pipeline(
+        context: &context::Context,
+    ) -> (wgpu::ComputePipeline, wgpu::BindGroupLayout) {
+        let shader = context
+            .device
+            .create_shader_module(wgpu::ShaderModuleDescriptor {
+                label: Some("Depth to Color Compute Shader"),
+                source: wgpu::ShaderSource::Wgsl(include_str!("compute.wgsl").into()),
+            });
+
+        // Create a bind group layout
+        let bind_group_layout =
+            context
+                .device
+                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    label: Some("Bind Group Layout"),
+                    entries: &[
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 0,
+                            visibility: wgpu::ShaderStages::COMPUTE,
+                            ty: wgpu::BindingType::Buffer {
+                                ty: wgpu::BufferBindingType::Storage { read_only: true },
+                                has_dynamic_offset: false,
+                                min_binding_size: None,
+                            },
+                            count: None,
+                        },
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 1,
+                            visibility: wgpu::ShaderStages::COMPUTE,
+                            ty: wgpu::BindingType::Buffer {
+                                ty: wgpu::BufferBindingType::Storage { read_only: false },
+                                has_dynamic_offset: false,
+                                min_binding_size: None,
+                            },
+                            count: None,
+                        },
+                    ],
+                });
+
+        let pipeline_layout =
+            context
+                .device
+                .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                    label: Some("Stencil Compute Pipeline Layout"),
+                    bind_group_layouts: &[&bind_group_layout],
+                    push_constant_ranges: &[],
+                });
+
+        (
+            context
+                .device
+                .create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+                    label: Some("Stencil Compute Pipeline"),
+                    layout: Some(&pipeline_layout),
+                    module: &shader,
+                    entry_point: "convert_depth_to_color",
+                    compilation_options: wgpu::PipelineCompilationOptions::default(),
+                    cache: None,
+                }),
+            bind_group_layout,
+        )
     }
 
     fn create_pipeline(
@@ -769,7 +1101,7 @@ impl RenderSystem {
                 &context,
                 &render_pipeline_layout,
                 &wireframe_shader,
-                None,
+                Some(Self::STANDARD_STENCIL_STATE),
                 &[],
                 Some(wgpu::PrimitiveTopology::LineList),
             ),
@@ -840,11 +1172,58 @@ impl RenderSystem {
                 &context,
                 &render_pipeline_layout,
                 &post_shader,
-                Some(Self::STANDARD_STENCIL_STATE),
+                None,
                 &[],
                 None,
             ),
             bind_group_layout,
+        )
+    }
+
+    fn create_debug_pipeline(
+        context: &context::Context,
+        uniform_bind_group_layout: &wgpu::BindGroupLayout,
+        texture_bind_group_layout: &wgpu::BindGroupLayout,
+    ) -> wgpu::RenderPipeline {
+        let debug_shader: wgpu::ShaderModule =
+            context
+                .device
+                .create_shader_module(wgpu::ShaderModuleDescriptor {
+                    label: Some("outline"),
+                    source: wgpu::ShaderSource::Wgsl(include_str!("outline.wgsl").into()),
+                });
+
+        let render_pipeline_layout =
+            context
+                .device
+                .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                    label: Some("Debug Render Pipeline Layout"),
+                    bind_group_layouts: &[&uniform_bind_group_layout, &texture_bind_group_layout],
+                    push_constant_ranges: &[],
+                });
+
+        let stencil_face_state = wgpu::StencilFaceState {
+            compare: wgpu::CompareFunction::Equal,
+            fail_op: wgpu::StencilOperation::Zero,
+            depth_fail_op: wgpu::StencilOperation::Keep,
+            pass_op: wgpu::StencilOperation::Keep,
+        };
+
+        Self::create_pipeline(
+            "Debug Render Pipeline",
+            &context,
+            &render_pipeline_layout,
+            &debug_shader,
+            Some(wgpu::StencilState {
+                front: stencil_face_state,
+                back: stencil_face_state,
+                // Applied to values being read from the buffer
+                read_mask: 0xff,
+                // Applied to values before being written to the buffer
+                write_mask: 0xff,
+            }),
+            &[model::ModelVertex2d::desc()],
+            None,
         )
     }
 }
