@@ -148,9 +148,21 @@ impl Component for CharacterStateComponent {
     }
 }
 
+// #[derive(Debug)]
+// pub ControllableComponent {
+// pub jump_available: bool,
+// pub is_grounded:
+// }
+
+// impl Component for ControllableComponent {
+//     fn name(&self) -> String {
+//         return "Controllable".to_string();
+//     }
+// }
+
 #[derive(Debug)]
 pub struct MetadataComponent {
-    // 00000000 00000000 00000000 000000co
+    // 00000000 00000000 00000000 00000jco
     // o -> should_outline
     // c -> is_controllable
     // j -> jump_available
@@ -172,6 +184,10 @@ impl MetadataComponent {
         if is_controllable {
             flags |= 2;
         }
+
+        flags |= (1 << 2);
+
+        flags |= (1 << 3);
 
         Self { flags }
     }

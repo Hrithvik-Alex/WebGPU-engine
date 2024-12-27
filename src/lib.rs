@@ -25,6 +25,7 @@ use log::debug;
 use physics::ColliderBoxComponent;
 use state::State;
 use std::sync::Arc;
+use std::thread::current;
 use std::time::{Duration, Instant};
 use winit::application::ApplicationHandler;
 
@@ -112,6 +113,7 @@ impl<'a> ApplicationHandler for App<'a> {
                     &mut state.collider_box_components,
                     &mut state.metadata_components,
                     &mut state.physics_components,
+                    current_time,
                 );
 
                 self.ticks_elapsed -= state::State::FIXED_UPDATE_DURATION;
