@@ -719,7 +719,7 @@ impl RenderSystem {
             render_pass.set_pipeline(&self.debug_render_pipeline);
             render_pass.set_bind_group(0, &self.uniform_bind_group, &[]);
             render_pass.set_bind_group(1, &self.texture_bind_group, &[]);
-            render_pass.set_stencil_reference(1);
+            render_pass.set_stencil_reference(2);
             render_pass.set_vertex_buffer(0, debug_vertex_buffer.slice(..));
             render_pass.set_index_buffer(debug_index_buffer.slice(..), wgpu::IndexFormat::Uint32); // 1.
             render_pass.draw_indexed(0..outline_indices.len() as u32, 0, 0..1);
@@ -1203,7 +1203,7 @@ impl RenderSystem {
                 });
 
         let stencil_face_state = wgpu::StencilFaceState {
-            compare: wgpu::CompareFunction::Equal,
+            compare: wgpu::CompareFunction::Greater,
             fail_op: wgpu::StencilOperation::Zero,
             depth_fail_op: wgpu::StencilOperation::Keep,
             pass_op: wgpu::StencilOperation::Keep,

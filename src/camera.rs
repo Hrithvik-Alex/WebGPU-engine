@@ -240,6 +240,10 @@ impl OrthographicCamera {
         self.center = position;
     }
 
+    pub fn update_position_delta(&mut self, position: Vector3<f32>) {
+        self.center += position;
+    }
+
     pub fn get_matrix(&self) -> Matrix4<f32> {
         let two: f32 = 2.0;
         let left = self.center.x - self.width as f32 / 2.0;

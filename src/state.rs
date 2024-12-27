@@ -35,6 +35,7 @@ pub struct State<'a> {
     pub collider_box_components: component::EntityMap<physics::ColliderBoxComponent>,
     pub light_components: component::EntityMap<uniform::LightComponent>,
     pub metadata_components: component::EntityMap<component::MetadataComponent>,
+    pub physics_components: component::EntityMap<physics::PhysicsComponent>,
     // entities: Vec<component::Entity>,
 
     // systems
@@ -119,6 +120,7 @@ impl<'a> State<'a> {
         let collider_box_components = EntityMap::new();
         let light_components = EntityMap::new();
         let metadata_components = EntityMap::new();
+        let physics_components = EntityMap::new();
 
         // let entities = position_components
         //     .keys()
@@ -151,6 +153,7 @@ impl<'a> State<'a> {
             collider_box_components, // entities,
             light_components,
             metadata_components,
+            physics_components,
             input_handler,
             render_system,
             physics_system,
@@ -486,10 +489,24 @@ impl<'a> State<'a> {
 
         assert!(metadata_component.is_some());
         self.metadata_components.insert(metadata_component);
+        self.physics_components
+            .insert(Some(physics::PhysicsComponent::new()));
         // self.entities.push(entity);
 
         entity
     }
+
+    // pub fn add_physics_component_to_entity(
+    //     &mut self,
+    //     entity: component::Entity,
+    //     physics_component: physics::PhysicsComponent,
+    // ) {
+    //     if let Some(component) = self.physics_components.get_mut(entity) {
+    //         *component = Some(physics_component);
+    //     } else {
+    //         assert!(false);
+    //     }
+    // }
 
     pub fn remove_entity(&mut self, entity: component::Entity) {
         self.position_components.remove(entity);
@@ -500,6 +517,7 @@ impl<'a> State<'a> {
         self.collider_box_components.remove(entity);
         self.light_components.remove(entity);
         self.metadata_components.remove(entity);
+        self.physics_components.remove(entity);
         // self.entities.
     }
 

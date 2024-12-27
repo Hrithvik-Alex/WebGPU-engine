@@ -153,6 +153,7 @@ pub struct MetadataComponent {
     // 00000000 00000000 00000000 000000co
     // o -> should_outline
     // c -> is_controllable
+    // j -> jump_available
     flags: u32,
 }
 
@@ -181,5 +182,17 @@ impl MetadataComponent {
 
     pub fn is_controllable(&self) -> bool {
         self.flags & 2 > 0
+    }
+
+    pub fn set_jump(&mut self, jump_available: bool) {
+        if (jump_available) {
+            self.flags |= (1 << 2)
+        } else {
+            self.flags &= !(1 << 2)
+        }
+    }
+
+    pub fn can_jump(&self) -> bool {
+        self.flags & (1 << 2) > 0
     }
 }

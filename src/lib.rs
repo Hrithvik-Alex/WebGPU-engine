@@ -111,6 +111,7 @@ impl<'a> ApplicationHandler for App<'a> {
                     &mut state.position_components,
                     &mut state.collider_box_components,
                     &mut state.metadata_components,
+                    &mut state.physics_components,
                 );
 
                 self.ticks_elapsed -= state::State::FIXED_UPDATE_DURATION;

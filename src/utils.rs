@@ -61,23 +61,23 @@ pub fn zip4_entities_mut<'a, T, U, V, W>(
         .map(|((((entity, a_i), (_, b_i)), (_, c_i)), (_, d_i))| (entity, a_i, b_i, c_i, d_i))
 }
 
-pub fn zip4_entities_1mut<'a, T, U, V, W>(
+pub fn zip4_entities_1immut<'a, T, U, V, W>(
     a: &'a mut EntityMap<T>,
-    b: &'a EntityMap<U>,
-    c: &'a EntityMap<V>,
+    b: &'a mut EntityMap<U>,
+    c: &'a mut EntityMap<V>,
     d: &'a EntityMap<W>,
 ) -> impl Iterator<
     Item = (
         Entity,
         &'a mut Option<T>,
-        &'a Option<U>,
-        &'a Option<V>,
+        &'a mut Option<U>,
+        &'a mut Option<V>,
         &'a Option<W>,
     ),
 > {
     a.iter_mut()
-        .zip(b.iter())
-        .zip(c.iter())
+        .zip(b.iter_mut())
+        .zip(c.iter_mut())
         .zip(d.iter())
         .map(|((((entity, a_i), (_, b_i)), (_, c_i)), (_, d_i))| (entity, a_i, b_i, c_i, d_i))
 }
