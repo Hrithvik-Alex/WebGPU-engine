@@ -71,7 +71,7 @@ impl RenderSystem {
             context
                 .device
                 .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                    label: Some("camera bind group layout"),
+                    label: Some("uniform bind group layout"),
                     entries: &[
                         wgpu::BindGroupLayoutEntry {
                             binding: 0,
@@ -85,6 +85,16 @@ impl RenderSystem {
                         },
                         wgpu::BindGroupLayoutEntry {
                             binding: 1,
+                            visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Buffer {
+                                ty: wgpu::BufferBindingType::Uniform,
+                                has_dynamic_offset: false,
+                                min_binding_size: None,
+                            },
+                            count: None,
+                        },
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 2,
                             visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
                             ty: wgpu::BindingType::Buffer {
                                 ty: wgpu::BufferBindingType::Uniform,
@@ -397,6 +407,17 @@ impl RenderSystem {
         // let mut all_indices: Vec<u32> = vec![];
         let camera_buffer = camera.get_buffer(&context.device);
         let world_buffer = world_uniform.get_buffer(&context.device);
+        let screen_resolution_buffer =
+            context
+                .device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("Screen Resloution Uniform Buffer"),
+                    contents: bytemuck::cast_slice(&[
+                        context.config.width as f32,
+                        context.config.height as f32,
+                    ]),
+                    usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+                });
         let uniform_bind_group = context
             .device
             .create_bind_group(&wgpu::BindGroupDescriptor {
@@ -414,6 +435,10 @@ impl RenderSystem {
                         resource: wgpu::BindingResource::Buffer(
                             world_buffer.as_entire_buffer_binding(),
                         ),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 2,
+                        resource: screen_resolution_buffer.as_entire_binding(),
                     },
                 ],
                 label: Some("camera bind group"),

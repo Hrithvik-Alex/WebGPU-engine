@@ -416,10 +416,10 @@ impl<'a> State<'a> {
                 );
 
             let light_component = uniform::LightComponent {
-                linear_dropoff: 0.001,
+                linear_dropoff: 0.0007,
                 quadratic_dropoff: 0.0001,
-                ambient_strength: 3.,
-                diffuse_strength: 5.,
+                ambient_strength: 10.,
+                diffuse_strength: 15.,
                 color: cgmath::Vector3 {
                     x: 1.0,
                     y: 0.0,
@@ -454,10 +454,10 @@ impl<'a> State<'a> {
                 );
 
             let light_component = uniform::LightComponent {
-                linear_dropoff: 0.001,
+                linear_dropoff: 0.0007,
                 quadratic_dropoff: 0.0001,
-                ambient_strength: 3.,
-                diffuse_strength: 5.,
+                ambient_strength: 10.,
+                diffuse_strength: 15.,
                 color: cgmath::Vector3 {
                     x: 1.0,
                     y: 1.0,

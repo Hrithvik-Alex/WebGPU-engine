@@ -32,6 +32,8 @@ var<uniform> camera: CameraUniform;
 var<uniform> world: WorldUniform;
 // @group(1) @binding(1) // 2.
 // var<uniform> projection: ProjectionUniform;
+@group(0) @binding(2)
+var<uniform> screen_resolution: vec2<f32>;
 
 @vertex
 fn vs_main(
@@ -163,11 +165,11 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     for(var i: u32 = 0; i < light_len; i++) {
         var light = light_uniforms[i];
 
-        var light_pos =   (world.matrix * vec4<f32>(light.position, 1.0)); 
-        var light_dir = light_pos - in.clip_position;
+        var light_pos =  camera.view_proj *(world.matrix * vec4<f32>(light.position, 1.0)); 
+        var light_dir = light_pos - camera.view_proj * in.world_position;
         var light_mag = dot(normalize(normal), normalize(light_dir));
-        
-        var dist = length(light_dir);
+        // we want distance to be cognizant of world space
+        var dist = length(light_dir * vec4(screen_resolution, 1., 1.));
         var attenuation = 1. / (1.0 + light.linear_dropoff * dist + light.quadratic_dropoff * dist * dist);
 
         var ambient = light.ambient_strength * light.color  * attenuation;
