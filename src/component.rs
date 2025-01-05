@@ -33,7 +33,11 @@ impl VertexArrayComponent {
     pub const FOREGROUND_Z: f32 = 1.0;
     pub const OBJECT_Z: f32 = 0.5;
 
-    pub fn textured_quad(texture_index: u32, z_value: f32) -> Self {
+    pub fn textured_quad_with_coords(
+        texture_index: u32,
+        z_value: f32,
+        tex_coord_scale: cgmath::Vector2<f32>,
+    ) -> Self {
         let vertices = vec![
             cgmath::Vector2::new(-0.5, 0.5),  // TOP-LEFT
             cgmath::Vector2::new(0.5, 0.5),   // TOP-RIGHT
@@ -43,12 +47,15 @@ impl VertexArrayComponent {
 
         let indices = vec![0, 2, 3, 0, 3, 1];
 
-        let whole_tex_coords = vec![
+        let whole_tex_coords: Vec<cgmath::Vector2<f32>> = vec![
             cgmath::Vector2::new(0.0, 0.0), // TOP-LEFT
             cgmath::Vector2::new(1.0, 0.0), // TOP-RIGHT
             cgmath::Vector2::new(0.0, 1.0), // BOTTOM-LEFT
             cgmath::Vector2::new(1.0, 1.0), // BOTTOM-RIGHT
-        ];
+        ]
+        .iter_mut()
+        .map(|pos| pos.mul_element_wise(tex_coord_scale))
+        .collect();
 
         Self {
             vertices,
@@ -59,6 +66,10 @@ impl VertexArrayComponent {
             is_flipped: false,
             z_value,
         }
+    }
+
+    pub fn textured_quad(texture_index: u32, z_value: f32) -> Self {
+        Self::textured_quad_with_coords(texture_index, z_value, cgmath::Vector2::new(1., 1.))
     }
 
     pub fn circle(z_value: f32) -> Self {
@@ -212,3 +223,10 @@ impl MetadataComponent {
         self.flags & (1 << 2) > 0
     }
 }
+
+pub struct ParallaxComponent {
+    pub move_speed: f32,
+    pub layer: u32,
+}
+
+impl ParallaxComponent {}

@@ -1,7 +1,16 @@
 use cgmath::*;
+use log::debug;
+use num_traits::{clamp, clamp_max, clamp_min};
 // use std::f32::consts::FRAC_PI_2;
 // use log::debug;
 use wgpu::util::DeviceExt;
+
+use crate::{
+    component::{self, EntityMap, ParallaxComponent},
+    context,
+    uniform::WorldUniform,
+    utils,
+};
 
 // #[rustfmt::skip]
 // pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
@@ -294,5 +303,101 @@ impl OrthographicCamera {
             contents: bytemuck::cast_slice(&[ortho_uniform]),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         })
+    }
+}
+
+pub struct CameraController {}
+
+impl CameraController {
+    pub fn update(
+        // context: &context::Context,
+        player_position_vec: cgmath::Vector2<f32>,
+        camera: &mut OrthographicCamera,
+        world_uniform: &WorldUniform,
+        parallax_components: &mut EntityMap<component::ParallaxComponent>,
+        vertex_array_components: &mut EntityMap<component::VertexArrayComponent>,
+        position_components: &mut EntityMap<component::PositionComponent>,
+    ) {
+        let world_uniform_reg: cgmath::Matrix4<f32> = world_uniform.mat.into();
+        let world_uniform_inv: cgmath::Matrix4<f32> = world_uniform.inv_mat.into();
+
+        let screen_position = world_uniform_reg
+            * cgmath::Vector4::new(player_position_vec.x, player_position_vec.y, 1.0, 1.0);
+
+        let original_position =
+            cgmath::Vector2::new(camera.width as f32 / 2.0, camera.height as f32 / 2.0);
+
+        let mut update_parallax = |dir: cgmath::Vector2<f32>, camera: &mut OrthographicCamera| {
+            utils::zip3_entities_mut(
+                parallax_components,
+                vertex_array_components,
+                position_components,
+            )
+            .for_each(
+                |(_, parallax_component, vertex_array_component, position_component)| {
+                    if let (
+                        Some(parallax_component),
+                        Some(vertex_array_component),
+                        Some(position_component),
+                    ) = (
+                        parallax_component,
+                        vertex_array_component,
+                        position_component,
+                    ) {
+                        let new_position_screen_space = cgmath::vec2(
+                            clamp_min(camera.position().x, original_position.x),
+                            clamp_max(camera.position().y, original_position.y),
+                        );
+
+                        vertex_array_component
+                            .tex_coords
+                            .iter_mut()
+                            .zip(vertex_array_component.whole_tex_coords.iter())
+                            .for_each(|(coord, whole_coord)| {
+                                *coord = (whole_coord
+                                    + (new_position_screen_space - original_position)
+                                        * parallax_component.move_speed
+                                        / 200000.)
+                                    % 1.0;
+                                if screen_position.x > camera.width as f32 {
+                                    debug!("{:?}", coord);
+                                }
+                            });
+
+                        let new_position_world_space = world_uniform_inv
+                            * cgmath::Vector4::new(
+                                new_position_screen_space.x,
+                                new_position_screen_space.y,
+                                1.,
+                                1.,
+                            );
+
+                        position_component.position = new_position_world_space.xy();
+                    }
+                },
+            )
+        };
+
+        if screen_position.x > camera.width as f32 / 2.0 {
+            camera.update_position(Vector3::new(
+                screen_position.x,
+                camera.position().y,
+                camera.position().z,
+            ));
+
+            update_parallax(cgmath::Vector2::unit_x(), camera);
+        }
+
+        if screen_position.y < camera.height as f32 / 2.0 {
+            camera.update_position(Vector3::new(
+                camera.position().x,
+                screen_position.y,
+                camera.position().z,
+            ));
+
+            // debug!("{:?} {:?}", screen_position, camera.position());
+
+            update_parallax(cgmath::Vector2::unit_y(), camera);
+        }
     }
 }

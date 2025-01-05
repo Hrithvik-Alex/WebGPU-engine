@@ -14,6 +14,10 @@ use log::debug;
 
 use crate::context;
 
+pub struct GuiInfo {
+    pub fps: u32,
+}
+
 pub struct Gui {
     pub context: Context,
     pub state: State,
@@ -60,9 +64,9 @@ impl Gui {
         }
     }
 
-    pub fn handle_input(&mut self, window: &Window, event: &WindowEvent) {
-        let _ = self.state.on_window_event(window, event);
-    }
+    // pub fn handle_input(&mut self, window: &Window, event: &WindowEvent) {
+    //     let _ = self.state.on_window_event(window, event);
+    // }
 
     pub fn draw(
         &mut self,
@@ -70,6 +74,7 @@ impl Gui {
         encoder: &mut CommandEncoder,
         window: Arc<Window>,
         window_surface_view: &TextureView,
+        info: &GuiInfo,
         // mut run_ui: impl FnMut(&Context),
     ) {
         let screen_descriptor = ScreenDescriptor {
@@ -88,25 +93,25 @@ impl Gui {
             //     // .background_color(Color32::from_black_alpha(0));
             // });
 
-            // egui::Window::new("Streamline CFD")
-            //     // .vscroll(true)
-            //     .default_open(true)
-            //     .max_width(1000.0)
-            //     .max_height(800.0)
-            //     .default_width(800.0)
-            //     .resizable(true)
-            //     .anchor(Align2::LEFT_TOP, [0.0, 0.0])
-            //     .show(&ctx, |mut ui| {
-            //         // if ui.add(egui::Button::new("Click me")).clicked() {
-            //         //     debug!("PRESSED")
-            //         // }
+            egui::Window::new("statistacks")
+                // .vscroll(true)
+                .default_open(true)
+                .max_width(1000.0)
+                .max_height(800.0)
+                .default_width(800.0)
+                .resizable(true)
+                .anchor(Align2::LEFT_TOP, [0.0, 0.0])
+                .show(&ctx, |mut ui| {
+                    // if ui.add(egui::Button::new("Click me")).clicked() {
+                    //     debug!("PRESSED")
+                    // }
 
-            //         // ui.label("Slider");
-            //         // // ui.add(egui::Slider::new(_, 0..=120).text("age"));
-            //         // ui.end_row();
+                    ui.label(format!("FPS: {}", info.fps));
+                    // ui.add(egui::Slider::new(_, 0..=120).text("age"));
+                    ui.end_row();
 
-            //         // proto_scene.egui(ui);
-            //     });
+                    // proto_scene.egui(ui);
+                });
         });
 
         self.state

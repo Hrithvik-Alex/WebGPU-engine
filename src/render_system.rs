@@ -35,10 +35,9 @@ pub struct RenderSystem {
     wireframe_bind_group_layout: wgpu::BindGroupLayout,
     post_render_pipeline: wgpu::RenderPipeline,
     post_bind_group_layout: wgpu::BindGroupLayout,
-    uniform_bind_group: wgpu::BindGroup,
     storage_bind_group_layout: wgpu::BindGroupLayout,
     texture_bind_group: wgpu::BindGroup,
-
+    uniform_bind_group_layout: wgpu::BindGroupLayout,
     stencil_compute_pipeline: wgpu::ComputePipeline,
     stencil_compute_bind_group_layout: wgpu::BindGroupLayout,
     depth_stencil: texture::TextureBasic,
@@ -64,15 +63,7 @@ impl RenderSystem {
     const WORKGROUP_SIZE_X: u32 = 8;
     const WORKGROUP_SIZE_Y: u32 = 8;
 
-    pub fn new(
-        textures: &Vec<Arc<texture::Texture>>,
-        context: &context::Context,
-        world_uniform: &uniform::WorldUniform,
-        camera: &camera::OrthographicCamera,
-    ) -> Self {
-        let camera_buffer = camera.get_buffer(&context.device);
-        let world_buffer = world_uniform.get_buffer(&context.device);
-
+    pub fn new(textures: &Vec<Arc<texture::Texture>>, context: &context::Context) -> Self {
         // debug!("{:?}", camera_buffer);
         // debug!("{:?}", world_buffer);
 
@@ -105,28 +96,6 @@ impl RenderSystem {
                     ],
                 });
 
-        let uniform_bind_group = context
-            .device
-            .create_bind_group(&wgpu::BindGroupDescriptor {
-                layout: &uniform_bind_group_layout,
-                entries: &[
-                    wgpu::BindGroupEntry {
-                        binding: 0,
-
-                        resource: wgpu::BindingResource::Buffer(
-                            camera_buffer.as_entire_buffer_binding(),
-                        ),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 1,
-                        resource: wgpu::BindingResource::Buffer(
-                            world_buffer.as_entire_buffer_binding(),
-                        ),
-                    },
-                ],
-                label: Some("camera bind group"),
-            });
-
         let storage_bind_group_layout =
             context
                 .device
@@ -156,6 +125,90 @@ impl RenderSystem {
                     ],
                 });
 
+        let (texture_bind_group_layout, texture_bind_group) =
+            Self::create_texture_bindings(textures, context);
+        let bind_group_layouts: Vec<&wgpu::BindGroupLayout> = vec![
+            &uniform_bind_group_layout,
+            &storage_bind_group_layout,
+            &texture_bind_group_layout,
+        ];
+
+        // bind_group_layouts.extend(textures.iter().map(|texture| &texture.bind_group_layout));
+
+        let shader: wgpu::ShaderModule =
+            context
+                .device
+                .create_shader_module(wgpu::ShaderModuleDescriptor {
+                    label: Some("shader"),
+                    source: wgpu::ShaderSource::Wgsl(include_str!("shader.wgsl").into()),
+                });
+
+        let render_pipeline_layout =
+            context
+                .device
+                .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                    label: Some("Render Pipeline Layout"),
+                    bind_group_layouts: &bind_group_layouts,
+                    push_constant_ranges: &[],
+                });
+
+        let orig_render_pipeline = Self::create_pipeline(
+            "Original Render Pipeline",
+            &context,
+            &render_pipeline_layout,
+            &shader,
+            Some(Self::STANDARD_STENCIL_STATE),
+            &[model::ModelVertex2d::desc()],
+            None,
+        );
+
+        let depth_stencil = texture::TextureBasic::create_depth_texture(
+            &context.device,
+            &context.config,
+            "depth_texture",
+        );
+
+        let (wireframe_render_pipeline, wireframe_bind_group_layout) =
+            Self::create_wireframe_pipeline(context, &uniform_bind_group_layout);
+
+        let (post_render_pipeline, post_bind_group_layout) = Self::create_post_pipeline(context);
+
+        let (debug_render_pipeline) = Self::create_debug_pipeline(
+            context,
+            &uniform_bind_group_layout,
+            &texture_bind_group_layout,
+        );
+
+        let (stencil_compute_pipeline, stencil_compute_bind_group_layout) =
+            Self::create_stencil_compute_pipeline(context);
+
+        Self {
+            orig_render_pipeline,
+            debug_render_pipeline,
+            // debug_bind_group_layout,
+            wireframe_render_pipeline,
+            wireframe_bind_group_layout,
+            post_render_pipeline,
+            post_bind_group_layout,
+            uniform_bind_group_layout,
+            storage_bind_group_layout,
+            texture_bind_group,
+            stencil_compute_pipeline,
+            stencil_compute_bind_group_layout,
+            depth_stencil,
+        }
+    }
+
+    pub fn resize(&mut self, textures: &Vec<Arc<texture::Texture>>, context: &context::Context) {
+        let (_, texture_bind_group) = Self::create_texture_bindings(textures, context);
+
+        self.texture_bind_group = texture_bind_group;
+    }
+
+    pub fn create_texture_bindings(
+        textures: &Vec<Arc<texture::Texture>>,
+        context: &context::Context,
+    ) -> (wgpu::BindGroupLayout, wgpu::BindGroup) {
         let mut texture_bind_group_layout_entries = vec![wgpu::BindGroupLayoutEntry {
             binding: 0,
             visibility: wgpu::ShaderStages::FRAGMENT,
@@ -228,76 +281,7 @@ impl RenderSystem {
                 entries: &texture_bind_group_entries,
             });
 
-        let bind_group_layouts: Vec<&wgpu::BindGroupLayout> = vec![
-            &uniform_bind_group_layout,
-            &storage_bind_group_layout,
-            &texture_bind_group_layout,
-        ];
-
-        // bind_group_layouts.extend(textures.iter().map(|texture| &texture.bind_group_layout));
-
-        let shader: wgpu::ShaderModule =
-            context
-                .device
-                .create_shader_module(wgpu::ShaderModuleDescriptor {
-                    label: Some("shader"),
-                    source: wgpu::ShaderSource::Wgsl(include_str!("shader.wgsl").into()),
-                });
-
-        let render_pipeline_layout =
-            context
-                .device
-                .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                    label: Some("Render Pipeline Layout"),
-                    bind_group_layouts: &bind_group_layouts,
-                    push_constant_ranges: &[],
-                });
-
-        let orig_render_pipeline = Self::create_pipeline(
-            "Original Render Pipeline",
-            &context,
-            &render_pipeline_layout,
-            &shader,
-            Some(Self::STANDARD_STENCIL_STATE),
-            &[model::ModelVertex2d::desc()],
-            None,
-        );
-
-        let depth_stencil = texture::TextureBasic::create_depth_texture(
-            &context.device,
-            &context.config,
-            "depth_texture",
-        );
-
-        let (wireframe_render_pipeline, wireframe_bind_group_layout) =
-            Self::create_wireframe_pipeline(context, &uniform_bind_group_layout);
-
-        let (post_render_pipeline, post_bind_group_layout) = Self::create_post_pipeline(context);
-
-        let (debug_render_pipeline) = Self::create_debug_pipeline(
-            context,
-            &uniform_bind_group_layout,
-            &texture_bind_group_layout,
-        );
-
-        let (stencil_compute_pipeline, stencil_compute_bind_group_layout) =
-            Self::create_stencil_compute_pipeline(context);
-
-        Self {
-            orig_render_pipeline,
-            debug_render_pipeline,
-            // debug_bind_group_layout,
-            wireframe_render_pipeline,
-            wireframe_bind_group_layout,
-            post_render_pipeline,
-            post_bind_group_layout,
-            uniform_bind_group,
-            storage_bind_group_layout,
-            texture_bind_group,
-            stencil_compute_pipeline,
-            stencil_compute_bind_group_layout,
-            depth_stencil,
-        }
+        (texture_bind_group_layout, texture_bind_group)
     }
 
     fn get_vertices_for_entity<'a>(
@@ -405,9 +389,35 @@ impl RenderSystem {
         window: Arc<Window>,
         add_debug_pass: bool,
         time_elapsed: Duration,
+        world_uniform: &uniform::WorldUniform,
+        camera: &camera::OrthographicCamera,
+        gui_info: &gui::GuiInfo,
     ) -> Result<(), wgpu::SurfaceError> {
         // let mut all_vertices: Vec<ModelVertex2d> = vec![];
         // let mut all_indices: Vec<u32> = vec![];
+        let camera_buffer = camera.get_buffer(&context.device);
+        let world_buffer = world_uniform.get_buffer(&context.device);
+        let uniform_bind_group = context
+            .device
+            .create_bind_group(&wgpu::BindGroupDescriptor {
+                layout: &self.uniform_bind_group_layout,
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+
+                        resource: wgpu::BindingResource::Buffer(
+                            camera_buffer.as_entire_buffer_binding(),
+                        ),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: wgpu::BindingResource::Buffer(
+                            world_buffer.as_entire_buffer_binding(),
+                        ),
+                    },
+                ],
+                label: Some("camera bind group"),
+            });
 
         let (all_vertices, all_indices, light_uniforms, _) = Self::get_vertex_and_lighting_data(
             positions,
@@ -530,7 +540,7 @@ impl RenderSystem {
             });
             render_pass.set_pipeline(&self.orig_render_pipeline);
 
-            render_pass.set_bind_group(0, &self.uniform_bind_group, &[]);
+            render_pass.set_bind_group(0, &uniform_bind_group, &[]);
             render_pass.set_bind_group(1, &storage_bind_group, &[]);
             render_pass.set_bind_group(2, &self.texture_bind_group, &[]);
 
@@ -717,7 +727,7 @@ impl RenderSystem {
             });
 
             render_pass.set_pipeline(&self.debug_render_pipeline);
-            render_pass.set_bind_group(0, &self.uniform_bind_group, &[]);
+            render_pass.set_bind_group(0, &uniform_bind_group, &[]);
             render_pass.set_bind_group(1, &self.texture_bind_group, &[]);
             render_pass.set_stencil_reference(2);
             render_pass.set_vertex_buffer(0, debug_vertex_buffer.slice(..));
@@ -758,7 +768,7 @@ impl RenderSystem {
         //     },
         // );
 
-        gui.draw(&context, &mut encoder, window, &surface_view);
+        gui.draw(&context, &mut encoder, window, &surface_view, gui_info);
 
         context.queue.submit(std::iter::once(encoder.finish()));
         output.present();

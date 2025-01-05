@@ -12,6 +12,8 @@ use crate::sprite;
 use crate::texture;
 use crate::uniform;
 
+use std::cell::RefCell;
+use std::rc::Rc;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -23,7 +25,7 @@ pub struct State<'a> {
     pub size: winit::dpi::PhysicalSize<u32>,
     pub window: Arc<Window>,
     pub gui: gui::Gui,
-    pub sprite_sheets: Vec<Arc<sprite::SpriteSheet>>,
+    pub sprite_sheets: Vec<Rc<RefCell<sprite::SpriteSheet>>>,
     pub position_components: component::EntityMap<component::PositionComponent>,
     pub camera: camera::OrthographicCamera,
     pub world_uniform: uniform::WorldUniform,
@@ -36,6 +38,7 @@ pub struct State<'a> {
     pub light_components: component::EntityMap<uniform::LightComponent>,
     pub metadata_components: component::EntityMap<component::MetadataComponent>,
     pub physics_components: component::EntityMap<physics::PhysicsComponent>,
+    pub parallax_components: component::EntityMap<component::ParallaxComponent>,
     // entities: Vec<component::Entity>,
 
     // systems
@@ -63,37 +66,76 @@ impl<'a> State<'a> {
             window.clone(),
         );
 
-        let hero_sprite_sheet = Arc::new(sprite::SpriteSheet::new(
+        let hero_sprite_sheet = Rc::new(RefCell::new(sprite::SpriteSheet::new(
             &context,
             "./assets/warrior_spritesheet_calciumtrice.png".to_string(),
             Some("./assets/warrior_spritesheet_calciumtrice_n.png".to_string()),
             32,
             32,
             true,
-        ));
+        )));
 
-        let minotaur_sprite_sheet = Arc::new(sprite::SpriteSheet::new(
+        let minotaur_sprite_sheet = Rc::new(RefCell::new(sprite::SpriteSheet::new(
             &context,
             "./assets/minotaur_spritesheet_calciumtrice.png".to_string(),
             Some("./assets/minotaur_spritesheet_calciumtrice_n.png".to_string()),
             48,
             48,
             true,
-        ));
+        )));
 
-        let bg_sprite_sheet = Arc::new(sprite::SpriteSheet::new(
+        // let bg_sprite_sheet = Rc::new(RefCell::new(sprite::SpriteSheet::new(
+        //     &context,
+        //     "./assets/world_layer_1.png".to_string(),
+        //     None,
+        //     640,
+        //     360,
+        //     true,
+        // )));
+
+        let parallax_1_sprite_sheet = Rc::new(RefCell::new(sprite::SpriteSheet::new(
             &context,
-            "./assets/world_layer_1.png".to_string(),
+            "./assets/bg/P1.png".to_string(),
             None,
-            640,
-            360,
+            576,
+            324,
             true,
-        ));
+        )));
+
+        let parallax_2_sprite_sheet = Rc::new(RefCell::new(sprite::SpriteSheet::new(
+            &context,
+            "./assets/bg/P2.png".to_string(),
+            None,
+            576,
+            324,
+            true,
+        )));
+
+        let parallax_3_sprite_sheet = Rc::new(RefCell::new(sprite::SpriteSheet::new(
+            &context,
+            "./assets/bg/P3.png".to_string(),
+            None,
+            576,
+            324,
+            true,
+        )));
+
+        let parallax_4_sprite_sheet = Rc::new(RefCell::new(sprite::SpriteSheet::new(
+            &context,
+            "./assets/bg/P4.png".to_string(),
+            None,
+            576,
+            324,
+            true,
+        )));
 
         let sprite_sheets = vec![
             hero_sprite_sheet.clone(),
             minotaur_sprite_sheet.clone(),
-            bg_sprite_sheet.clone(),
+            parallax_1_sprite_sheet.clone(),
+            parallax_2_sprite_sheet.clone(),
+            parallax_3_sprite_sheet.clone(),
+            parallax_4_sprite_sheet.clone(),
         ];
 
         // let textures = sprite_sheets
@@ -121,6 +163,7 @@ impl<'a> State<'a> {
         let light_components = EntityMap::new();
         let metadata_components = EntityMap::new();
         let physics_components = EntityMap::new();
+        let parallax_components = EntityMap::new();
 
         // let entities = position_components
         //     .keys()
@@ -129,11 +172,10 @@ impl<'a> State<'a> {
 
         let textures = sprite_sheets
             .iter()
-            .map(|sprite_sheet| sprite_sheet.texture())
+            .map(|sprite_sheet| sprite_sheet.borrow().texture())
             .collect::<Vec<Arc<texture::Texture>>>();
 
-        let render_system =
-            render_system::RenderSystem::new(&textures, &context, &world_uniform, &camera);
+        let render_system = render_system::RenderSystem::new(&textures, &context);
 
         let physics_system = physics::PhysicsSystem::new(Self::FIXED_UPDATE_DURATION);
 
@@ -154,13 +196,19 @@ impl<'a> State<'a> {
             light_components,
             metadata_components,
             physics_components,
+            parallax_components,
             input_handler,
             render_system,
             physics_system,
         }
     }
 
-    pub fn init(&mut self) {
+    pub fn init(&mut self) -> component::Entity {
+        let parallax_scale = cgmath::Vector2 {
+            x: 320. / 576.,
+            y: 180. / 324.,
+        };
+
         let bg1 = {
             let position_component = component::PositionComponent {
                 position: cgmath::Vector2::new(
@@ -172,13 +220,21 @@ impl<'a> State<'a> {
                     uniform::WorldUniform::WORLD_SCREEN_HEIGHT as f32,
                 ),
             };
+            let layer = 1;
+
             let vertex_array_component: component::VertexArrayComponent =
-                component::VertexArrayComponent::textured_quad(
+                component::VertexArrayComponent::textured_quad_with_coords(
                     2,
-                    component::VertexArrayComponent::BACKGROUND_Z,
+                    component::VertexArrayComponent::BACKGROUND_Z * layer as f32,
+                    parallax_scale,
                 );
 
             let metadata_component = component::MetadataComponent::new(false, false);
+
+            let parallax_component = component::ParallaxComponent {
+                move_speed: 30.,
+                layer,
+            };
 
             self.add_entity(
                 Some(position_component),
@@ -189,6 +245,127 @@ impl<'a> State<'a> {
                 None,
                 None,
                 Some(metadata_component),
+                Some(parallax_component),
+            )
+        };
+
+        let bg2 = {
+            let position_component = component::PositionComponent {
+                position: cgmath::Vector2::new(
+                    uniform::WorldUniform::WORLD_SCREEN_WIDTH as f32 / 2.0,
+                    uniform::WorldUniform::WORLD_SCREEN_HEIGHT as f32 / 2.0,
+                ),
+                scale: cgmath::Vector2::new(
+                    uniform::WorldUniform::WORLD_SCREEN_WIDTH as f32,
+                    uniform::WorldUniform::WORLD_SCREEN_HEIGHT as f32,
+                ),
+            };
+            let layer = 2;
+
+            let vertex_array_component: component::VertexArrayComponent =
+                component::VertexArrayComponent::textured_quad_with_coords(
+                    3,
+                    component::VertexArrayComponent::BACKGROUND_Z * layer as f32,
+                    parallax_scale,
+                );
+
+            let metadata_component = component::MetadataComponent::new(false, false);
+
+            let parallax_component = component::ParallaxComponent {
+                move_speed: 20.,
+                layer,
+            };
+
+            self.add_entity(
+                Some(position_component),
+                Some(vertex_array_component),
+                None,
+                None,
+                None,
+                None,
+                None,
+                Some(metadata_component),
+                Some(parallax_component),
+            )
+        };
+
+        let bg3 = {
+            let position_component = component::PositionComponent {
+                position: cgmath::Vector2::new(
+                    uniform::WorldUniform::WORLD_SCREEN_WIDTH as f32 / 2.0,
+                    uniform::WorldUniform::WORLD_SCREEN_HEIGHT as f32 / 2.0,
+                ),
+                scale: cgmath::Vector2::new(
+                    uniform::WorldUniform::WORLD_SCREEN_WIDTH as f32,
+                    uniform::WorldUniform::WORLD_SCREEN_HEIGHT as f32,
+                ),
+            };
+            let layer = 3;
+
+            let vertex_array_component: component::VertexArrayComponent =
+                component::VertexArrayComponent::textured_quad_with_coords(
+                    4,
+                    component::VertexArrayComponent::BACKGROUND_Z * layer as f32,
+                    parallax_scale,
+                );
+
+            let metadata_component = component::MetadataComponent::new(false, false);
+
+            let parallax_component = component::ParallaxComponent {
+                move_speed: 10.,
+                layer,
+            };
+
+            self.add_entity(
+                Some(position_component),
+                Some(vertex_array_component),
+                None,
+                None,
+                None,
+                None,
+                None,
+                Some(metadata_component),
+                Some(parallax_component),
+            )
+        };
+
+        let bg4 = {
+            let position_component = component::PositionComponent {
+                position: cgmath::Vector2::new(
+                    uniform::WorldUniform::WORLD_SCREEN_WIDTH as f32 / 2.0,
+                    uniform::WorldUniform::WORLD_SCREEN_HEIGHT as f32 / 2.0,
+                ),
+                scale: cgmath::Vector2::new(
+                    uniform::WorldUniform::WORLD_SCREEN_WIDTH as f32,
+                    uniform::WorldUniform::WORLD_SCREEN_HEIGHT as f32,
+                ),
+            };
+            let layer = 4;
+
+            let vertex_array_component: component::VertexArrayComponent =
+                component::VertexArrayComponent::textured_quad_with_coords(
+                    5,
+                    component::VertexArrayComponent::BACKGROUND_Z * layer as f32,
+                    parallax_scale,
+                );
+
+            let metadata_component = component::MetadataComponent::new(false, false);
+
+            let parallax_component = component::ParallaxComponent {
+                move_speed: 0.,
+                layer,
+            };
+
+            self.add_entity(
+                Some(position_component),
+                Some(vertex_array_component),
+                None,
+                None,
+                None,
+                None,
+                None,
+                Some(metadata_component),
+                Some(parallax_component),
             )
         };
 
@@ -223,6 +400,7 @@ impl<'a> State<'a> {
                 Some(collider_box_component),
                 None,
                 Some(metadata_component),
+                None,
             )
         };
 
@@ -260,6 +438,7 @@ impl<'a> State<'a> {
                 None,
                 Some(light_component),
                 Some(metadata_component),
+                None,
             )
         };
 
@@ -296,6 +475,7 @@ impl<'a> State<'a> {
                 None,
                 Some(light_component),
                 Some(metadata_component),
+                None,
             )
         };
 
@@ -372,6 +552,7 @@ impl<'a> State<'a> {
                 Some(collider_box_component),
                 None,
                 Some(metadata_component),
+                None,
             )
         };
 
@@ -446,16 +627,19 @@ impl<'a> State<'a> {
                 Some(collider_box_component),
                 None,
                 Some(metadata_component),
+                None,
             )
         };
 
         debug!("{:?}", self.vertex_array_components);
-        debug!(
-            "{:?}",
-            // self.camera.get_matrix() *
-            self.world_uniform.calc(self.size.width, self.size.height)
-                * cgmath::vec4(100., 300., 0.5, 1.)
-        );
+        // debug!(
+        //     "{:?}",
+        //     // self.camera.get_matrix() *
+        //     self.world_uniform.calc(self.size.width, self.size.height)
+        //         * cgmath::vec4(100., 300., 0.5, 1.)
+        // );
+
+        character
     }
 
     pub fn add_entity(
@@ -470,6 +654,7 @@ impl<'a> State<'a> {
         collider_box_component: Option<physics::ColliderBoxComponent>,
         light_component: Option<uniform::LightComponent>,
         metadata_component: Option<component::MetadataComponent>,
+        parallax_component: Option<component::ParallaxComponent>,
     ) -> component::Entity {
         let entity = self.position_components.insert(position_component);
         self.vertex_array_components.insert(vertex_array_component);
@@ -492,6 +677,7 @@ impl<'a> State<'a> {
         self.physics_components
             .insert(Some(physics::PhysicsComponent::new()));
         // self.entities.push(entity);
+        self.parallax_components.insert(parallax_component);
 
         entity
     }
@@ -534,13 +720,20 @@ impl<'a> State<'a> {
                 .configure(&self.context.device, &self.context.config);
             self.camera.resize(new_size.width, new_size.height);
             self.world_uniform.resize(new_size.width, new_size.height);
+
+            self.sprite_sheets
+                .iter_mut()
+                .for_each(|sprite_sheet| sprite_sheet.borrow_mut().resize(&self.context));
+
+            let textures = &self.textures();
+            self.render_system.resize(textures, &self.context);
         }
     }
 
     pub fn textures(&self) -> Vec<Arc<texture::Texture>> {
         self.sprite_sheets
             .iter()
-            .map(|sprite_sheet| sprite_sheet.texture())
+            .map(|sprite_sheet| sprite_sheet.borrow().texture())
             .collect::<Vec<Arc<texture::Texture>>>()
     }
 }

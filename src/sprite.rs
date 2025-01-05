@@ -1,3 +1,5 @@
+use std::cell::RefCell;
+use std::rc::Rc;
 use std::sync::Arc;
 
 use crate::component;
@@ -100,7 +102,7 @@ use log::debug;
 // }
 
 pub struct SheetPositionComponent {
-    pub sprite_sheet: Arc<SpriteSheet>,
+    pub sprite_sheet: Rc<RefCell<SpriteSheet>>,
     pub sheet_position: cgmath::Vector2<u32>,
 }
 
@@ -125,10 +127,13 @@ impl SpriteSheetSystem {
                     if let (Some(vertex_array_component), Some(sheet_position_component)) =
                         (vertex_array_component, sheet_position_component)
                     {
-                        sheet_position_component.sprite_sheet.adjust_tex_coords(
-                            vertex_array_component,
-                            sheet_position_component.sheet_position,
-                        )
+                        sheet_position_component
+                            .sprite_sheet
+                            .borrow()
+                            .adjust_tex_coords(
+                                vertex_array_component,
+                                sheet_position_component.sheet_position,
+                            )
                     }
                 },
             );
@@ -140,6 +145,10 @@ pub struct SpriteSheet {
     sprite_height: u32,
     dimensions: (u32, u32),
     texture: Arc<texture::Texture>,
+
+    texture_path: String,
+    normal_path: Option<String>,
+    manual_premultiply: bool,
 }
 
 impl SpriteSheet {
@@ -155,8 +164,8 @@ impl SpriteSheet {
             crate::texture::Texture::from_path(
                 &context.device,
                 &context.queue,
-                texture_path,
-                normal_path,
+                texture_path.clone(),
+                normal_path.clone(),
                 manual_premultiply,
             )
             .unwrap(),
@@ -170,6 +179,9 @@ impl SpriteSheet {
             sprite_height,
             dimensions,
             texture,
+            texture_path,
+            normal_path,
+            manual_premultiply,
         }
     }
 
@@ -180,6 +192,19 @@ impl SpriteSheet {
 
     pub fn texture(&self) -> Arc<texture::Texture> {
         return self.texture.clone();
+    }
+
+    pub fn resize(&mut self, context: &context::Context) {
+        self.texture = Arc::new(
+            crate::texture::Texture::from_path(
+                &context.device,
+                &context.queue,
+                self.texture_path.clone(),
+                self.normal_path.clone(),
+                self.manual_premultiply,
+            )
+            .unwrap(),
+        )
     }
 
     pub fn adjust_tex_coords(

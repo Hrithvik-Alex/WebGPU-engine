@@ -35,8 +35,10 @@ use wasm_bindgen::prelude::*;
 pub struct App<'a> {
     window: Option<Arc<Window>>,
     state: Option<state::State<'a>>,
+    player: Option<component::Entity>,
 
-    frames: i32,
+    last_fps: u32,
+    frames: u32,
     start_time: Instant,
     seconds_elapsed: u64,
     last_frame_time: Duration,
@@ -55,7 +57,9 @@ impl<'a> App<'a> {
         Self {
             window: None,
             state: None,
+            player: None,
             start_time,
+            last_fps: 0,
             frames,
             seconds_elapsed,
             last_frame_time,
@@ -83,9 +87,10 @@ impl<'a> ApplicationHandler for App<'a> {
                 .unwrap(),
         );
         let mut state = pollster::block_on(state::State::new(window.clone())); // (1)
-        state.init();
+        let player = state.init();
         self.window = Some(window); // (2)
         self.state = Some(state);
+        self.player = Some(player);
     }
 
     fn window_event(
@@ -94,12 +99,13 @@ impl<'a> ApplicationHandler for App<'a> {
         window_id: WindowId,
         event: WindowEvent,
     ) {
-        if let Some(ref mut state) = &mut self.state {
+        if let (Some(ref mut state), Some(player)) = (&mut self.state, self.player) {
             self.frames += 1;
             let current_time = self.start_time.elapsed();
             let delta_time = current_time - self.last_frame_time;
             if current_time > Duration::new(self.seconds_elapsed + 1, 0) {
-                debug!("FPS {:?}", self.frames);
+                self.last_fps = self.frames;
+                debug!("FPS {:?}", self.last_fps);
                 self.frames = 0;
                 self.seconds_elapsed += 1;
             }
@@ -130,6 +136,21 @@ impl<'a> ApplicationHandler for App<'a> {
                 delta_time,
             );
 
+            let player_position = state.position_components.get(player);
+            assert!(player_position.is_some() && player_position.unwrap().is_some());
+            camera::CameraController::update(
+                // &state.context,
+                player_position.unwrap().as_ref().unwrap().position,
+                &mut state.camera,
+                &state.world_uniform,
+                &mut state.parallax_components,
+                &mut state.vertex_array_components,
+                &mut state.position_components,
+            );
+
+            let gui_info = gui::GuiInfo {
+                fps: self.last_fps as u32,
+            };
             if state
                 .gui
                 .state
@@ -171,6 +192,9 @@ impl<'a> ApplicationHandler for App<'a> {
                             state.window.clone(),
                             true,
                             current_time,
+                            &state.world_uniform,
+                            &state.camera,
+                            &gui_info,
                         );
                         match render_result {
                             Ok(_) => {}

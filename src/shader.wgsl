@@ -75,7 +75,16 @@ var t_minotaur: texture_2d<f32>;
 var n_minotaur: texture_2d<f32>;
 
 @group(2) @binding(5)
-var t_bg: texture_2d<f32>;
+var t_bg1: texture_2d<f32>;
+
+@group(2) @binding(6)
+var t_bg2: texture_2d<f32>;
+
+@group(2) @binding(7)
+var t_bg3: texture_2d<f32>;
+
+@group(2) @binding(8)
+var t_bg4: texture_2d<f32>;
 
 
 @fragment
@@ -102,8 +111,32 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         }
 
         case 2u: {
-            // color = textureSample(t_bg, pixel_sampler, in.tex_coords);
-            color = vec4(0.1,0.1,0.1,1);
+            color = textureSample(t_bg1, pixel_sampler, in.tex_coords);
+            // color = vec4(0.1,0.1,0.1,1);
+            // normal = vec4(0.,0,1,0);
+            // has_normal = true;
+ 
+        }
+
+        case 3u: {
+            color = textureSample(t_bg2, pixel_sampler, in.tex_coords);
+            // color = vec4(0.1,0.1,0.1,1);
+            // normal = vec4(0.,0,1,0);
+            // has_normal = true;
+ 
+        }
+
+        case 4u: {
+            color = textureSample(t_bg3, pixel_sampler, in.tex_coords);
+            // color = vec4(0.1,0.1,0.1,1);
+            // normal = vec4(0.,0,1,0);
+            // has_normal = true;
+ 
+        }
+
+        case 5u: {
+            color = textureSample(t_bg4, pixel_sampler, in.tex_coords);
+            // color = vec4(0.1,0.1,0.1,1);
             // normal = vec4(0.,0,1,0);
             // has_normal = true;
  

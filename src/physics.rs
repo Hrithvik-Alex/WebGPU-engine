@@ -161,10 +161,6 @@ impl PhysicsSystem {
                     }
                 };
 
-                if !metadata_component.can_jump() {
-                    debug!("{:?}", position_component.position.y);
-                }
-
                 physics_component.velocity += physics_component.acceleration * tick_secs;
                 let delta = physics_component.velocity * tick_secs;
                 let mut delta_add = delta;

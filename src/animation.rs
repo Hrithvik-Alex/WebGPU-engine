@@ -81,6 +81,7 @@ impl AnimationSystem {
 
                         sheet_position_component.sheet_position = sheet_position_component
                             .sprite_sheet
+                            .borrow()
                             .get_position_by_index(sprite_animation.get_sheet_index());
                     }
                 }
