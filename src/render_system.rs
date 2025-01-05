@@ -213,6 +213,12 @@ impl RenderSystem {
         let (_, texture_bind_group) = Self::create_texture_bindings(textures, context);
 
         self.texture_bind_group = texture_bind_group;
+
+        self.depth_stencil = texture::TextureBasic::create_depth_texture(
+            &context.device,
+            &context.config,
+            "depth_texture",
+        );
     }
 
     pub fn create_texture_bindings(
@@ -343,7 +349,7 @@ impl RenderSystem {
         metadata_components: &component::EntityMap<component::MetadataComponent>,
     ) -> (Vec<ModelVertex2d>, Vec<u32>, Vec<LightUniform>, usize) {
         utils::zip4_entities(positions, vertex_arrays, lights, metadata_components)
-            .filter_map(|(e, pos, vertex_array, light, metadata_component)| {
+            .filter_map(|(_, pos, vertex_array, light, metadata_component)| {
                 pos.as_ref().and_then(|pos| {
                     vertex_array.as_ref().map(|vertex_array| {
                         (
@@ -482,8 +488,8 @@ impl RenderSystem {
         let frame_buffer_a =
             texture::TextureBasic::create_basic(&context.device, &context.config, "frame buffer a");
 
-        let frame_buffer_b =
-            texture::TextureBasic::create_basic(&context.device, &context.config, "frame buffer b");
+        // let frame_buffer_b =
+        //     texture::TextureBasic::create_basic(&context.device, &context.config, "frame buffer b");
 
         let time_uniform = uniform::TimeUniform {
             time: (time_elapsed.as_millis() % u32::MAX as u128) as f32,
@@ -531,11 +537,18 @@ impl RenderSystem {
             ],
         });
 
+        let output = context.surface.get_current_texture()?;
+
+        let surface_tex = &output.texture;
+        let surface_view = surface_tex.create_view(&wgpu::TextureViewDescriptor::default());
+
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Original Render Pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &frame_buffer_a.view,
+                    view: 
+                    // &surface_view,
+                    &frame_buffer_a.view,
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color {
@@ -595,11 +608,6 @@ impl RenderSystem {
             render_pass.set_bind_group(1, &wireframe_bind_group, &[]);
             render_pass.draw(0..num_indices as u32 * 2, 0..1); // TODO: slightly overdraws 6 instead of 5 edges per, maybe optimize?
         }
-
-        let output = context.surface.get_current_texture()?;
-
-        let surface_tex = &output.texture;
-        let surface_view = surface_tex.create_view(&wgpu::TextureViewDescriptor::default());
 
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {

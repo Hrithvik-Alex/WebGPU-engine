@@ -143,13 +143,7 @@ impl<'a> State<'a> {
         //     .map(|sprite_sheet| sprite_sheet.texture())
         //     .collect::<Vec<Arc<texture::Texture>>>();
 
-        let camera = camera::OrthographicCamera::new(
-            size.width,
-            size.height,
-            0.1,
-            100.0,
-            cgmath::Vector3::new(size.width as f32 / 2.0, size.height as f32 / 2.0, 1.0),
-        );
+        let camera = camera::OrthographicCamera::new(size.width, size.height, 0.1, 100.0);
 
         let mut world_uniform = uniform::WorldUniform::new();
         world_uniform.resize(size.width, size.height);
@@ -713,11 +707,7 @@ impl<'a> State<'a> {
     pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
         if new_size.width > 0 && new_size.height > 0 {
             self.size = new_size;
-            self.context.config.width = new_size.width;
-            self.context.config.height = new_size.height;
-            self.context
-                .surface
-                .configure(&self.context.device, &self.context.config);
+            self.context.resize(new_size);
             self.camera.resize(new_size.width, new_size.height);
             self.world_uniform.resize(new_size.width, new_size.height);
 

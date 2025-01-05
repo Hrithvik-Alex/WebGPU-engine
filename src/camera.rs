@@ -223,22 +223,42 @@ impl OrthoUniform {
 
 #[derive(Clone)]
 pub struct OrthographicCamera {
-    width: u32,
-    height: u32,
+    width: f32,
+    height: f32,
     znear: f32,
     zfar: f32,
     center: Vector3<f32>,
 }
 
 impl OrthographicCamera {
-    pub fn new(width: u32, height: u32, znear: f32, zfar: f32, center: Vector3<f32>) -> Self {
+    pub fn original_center(width: f32, height: f32) -> Vector3<f32> {
+        vec3(width / 2.0, height / 2.0, 1.0)
+    }
+
+    pub fn new_with_pos(
+        width: u32,
+        height: u32,
+        znear: f32,
+        zfar: f32,
+        center: Vector3<f32>,
+    ) -> Self {
         Self {
-            width,
-            height,
+            width: width as f32,
+            height: height as f32,
             znear,
             zfar,
             center,
         }
+    }
+
+    pub fn new(width: u32, height: u32, znear: f32, zfar: f32) -> Self {
+        Self::new_with_pos(
+            width,
+            height,
+            znear,
+            zfar,
+            Self::original_center(width as f32, height as f32),
+        )
     }
 
     pub fn position(&self) -> Vector3<f32> {
@@ -291,6 +311,12 @@ impl OrthographicCamera {
     }
 
     pub fn resize(&mut self, width: u32, height: u32) {
+        let width = width as f32;
+        let height = height as f32;
+        let disp = self.center - Self::original_center(self.width, self.height);
+
+        self.center = vec3(width / 2., height / 2., 1.0)
+            + disp.mul_element_wise(vec3(width / self.width, height / self.height, 1.));
         self.width = width;
         self.height = height;
     }

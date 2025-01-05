@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::component::Component;
 use log::debug;
-use winit::window::Window;
+use winit::{dpi::PhysicalSize, window::Window};
 
 pub struct Context<'a> {
     pub surface: wgpu::Surface<'a>,
@@ -85,5 +85,11 @@ impl<'a> Context<'a> {
             queue,
             config,
         }
+    }
+
+    pub fn resize(&mut self, new_size: PhysicalSize<u32>) {
+        self.config.width = new_size.width;
+        self.config.height = new_size.height;
+        self.surface.configure(&self.device, &self.config);
     }
 }
