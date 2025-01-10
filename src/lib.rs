@@ -12,6 +12,7 @@ mod state;
 mod texture;
 mod uniform;
 mod utils;
+mod wgsl_preprocessor;
 
 use egui_winit::winit;
 use egui_winit::winit::{

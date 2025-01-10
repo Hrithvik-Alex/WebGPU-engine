@@ -12,6 +12,7 @@ use crate::texture;
 use crate::uniform;
 use crate::uniform::LightUniform;
 use crate::utils;
+use crate::wgsl_preprocessor;
 use cgmath::num_traits::ToPrimitive;
 use cgmath::ElementWise;
 
@@ -139,8 +140,8 @@ impl RenderSystem {
             Self::create_texture_bindings(textures, context);
         let bind_group_layouts: Vec<&wgpu::BindGroupLayout> = vec![
             &uniform_bind_group_layout,
-            &storage_bind_group_layout,
             &texture_bind_group_layout,
+            &storage_bind_group_layout,
         ];
 
         // bind_group_layouts.extend(textures.iter().map(|texture| &texture.bind_group_layout));
@@ -150,7 +151,7 @@ impl RenderSystem {
                 .device
                 .create_shader_module(wgpu::ShaderModuleDescriptor {
                     label: Some("shader"),
-                    source: wgpu::ShaderSource::Wgsl(include_str!("shader.wgsl").into()),
+                    source: wgpu::ShaderSource::Wgsl(wgsl_preprocessor::process("shader.wgsl").into()),
                 });
 
         let render_pipeline_layout =
@@ -579,8 +580,9 @@ impl RenderSystem {
             render_pass.set_pipeline(&self.orig_render_pipeline);
 
             render_pass.set_bind_group(0, &uniform_bind_group, &[]);
-            render_pass.set_bind_group(1, &storage_bind_group, &[]);
-            render_pass.set_bind_group(2, &self.texture_bind_group, &[]);
+            render_pass.set_bind_group(1, &self.texture_bind_group, &[]);
+
+            render_pass.set_bind_group(2, &storage_bind_group, &[]);
 
             render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
             render_pass.set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint32); // 1.
@@ -969,7 +971,7 @@ impl RenderSystem {
             .device
             .create_shader_module(wgpu::ShaderModuleDescriptor {
                 label: Some("Depth to Color Compute Shader"),
-                source: wgpu::ShaderSource::Wgsl(include_str!("compute.wgsl").into()),
+                source: wgpu::ShaderSource::Wgsl(wgsl_preprocessor::process("compute.wgsl").into()),
             });
 
         // Create a bind group layout
@@ -1097,7 +1099,7 @@ impl RenderSystem {
             .device
             .create_shader_module(wgpu::ShaderModuleDescriptor {
                 label: Some("wireframe shader"),
-                source: wgpu::ShaderSource::Wgsl(include_str!("wireframe.wgsl").into()),
+                source: wgpu::ShaderSource::Wgsl(wgsl_preprocessor::process("wireframe.wgsl").into()),
             });
 
         let bind_group_layout =
@@ -1159,7 +1161,7 @@ impl RenderSystem {
             .device
             .create_shader_module(wgpu::ShaderModuleDescriptor {
                 label: Some("post shader"),
-                source: wgpu::ShaderSource::Wgsl(include_str!("post.wgsl").into()),
+                source: wgpu::ShaderSource::Wgsl(wgsl_preprocessor::process("post.wgsl").into()),
             });
 
         let bind_group_layout =
@@ -1233,7 +1235,7 @@ impl RenderSystem {
                 .device
                 .create_shader_module(wgpu::ShaderModuleDescriptor {
                     label: Some("outline"),
-                    source: wgpu::ShaderSource::Wgsl(include_str!("outline.wgsl").into()),
+                    source: wgpu::ShaderSource::Wgsl(wgsl_preprocessor::process("outline.wgsl").into()),
                 });
 
         let render_pipeline_layout =

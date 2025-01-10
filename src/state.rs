@@ -75,14 +75,23 @@ impl<'a> State<'a> {
             true,
         )));
 
-        let minotaur_sprite_sheet = Rc::new(RefCell::new(sprite::SpriteSheet::new(
+        let scroll_sprite_sheet = Rc::new(RefCell::new(sprite::SpriteSheet::new(
             &context,
-            "./assets/minotaur_spritesheet_calciumtrice.png".to_string(),
-            Some("./assets/minotaur_spritesheet_calciumtrice_n.png".to_string()),
-            48,
-            48,
+            "./assets/scroll.png".to_string(),
+            None,
+            16,
+            16,
             true,
         )));
+
+        // let minotaur_sprite_sheet = Rc::new(RefCell::new(sprite::SpriteSheet::new(
+        //     &context,
+        //     "./assets/minotaur_spritesheet_calciumtrice.png".to_string(),
+        //     Some("./assets/minotaur_spritesheet_calciumtrice_n.png".to_string()),
+        //     48,
+        //     48,
+        //     true,
+        // )));
 
         // let bg_sprite_sheet = Rc::new(RefCell::new(sprite::SpriteSheet::new(
         //     &context,
@@ -131,7 +140,7 @@ impl<'a> State<'a> {
 
         let sprite_sheets = vec![
             hero_sprite_sheet.clone(),
-            minotaur_sprite_sheet.clone(),
+            scroll_sprite_sheet.clone(),
             parallax_1_sprite_sheet.clone(),
             parallax_2_sprite_sheet.clone(),
             parallax_3_sprite_sheet.clone(),
@@ -550,80 +559,106 @@ impl<'a> State<'a> {
             )
         };
 
-        let minotaur = {
+        let scroll = {
             let position_component = component::PositionComponent {
                 position: cgmath::Vector2::new(232., 132.),
                 scale: cgmath::Vector2::new(64., 64.),
             };
 
-            let texture_index = 1; // warrior
+            let texture_index = 1; // scroll
 
             let vertex_array_component = component::VertexArrayComponent::textured_quad(
                 texture_index,
                 component::VertexArrayComponent::OBJECT_Z,
             );
-            let sprite_animation_idle = animation::SpriteAnimation {
-                animation_index: 0,
-                sprite_count: 10,
-                start_index: 0,
-                per_sprite_duration: Duration::new(0, 125000000),
-                current_elapsed_time: Duration::new(0, 0),
-            };
-            let sprite_animation_run = animation::SpriteAnimation {
-                animation_index: 0,
-                sprite_count: 10,
-                start_index: 20,
-                per_sprite_duration: Duration::new(0, 125000000),
-                current_elapsed_time: Duration::new(0, 0),
-            };
-            let sprite_animation_attack = animation::SpriteAnimation {
-                animation_index: 0,
-                sprite_count: 10,
-                start_index: 30,
-                per_sprite_duration: Duration::new(0, 125000000),
-                current_elapsed_time: Duration::new(0, 0),
-            };
 
-            let mut sprite_animation_controller =
-                animation::SpriteAnimationControllerComponent::new();
-            sprite_animation_controller
-                .animation_map
-                .insert(component::CharacterState::IDLE, sprite_animation_idle);
-            sprite_animation_controller
-                .animation_map
-                .insert(component::CharacterState::MOVE, sprite_animation_run);
-            sprite_animation_controller
-                .animation_map
-                .insert(component::CharacterState::ATTACK, sprite_animation_attack);
-
-            let sheet_position_component = sprite::SheetPositionComponent {
-                sprite_sheet: self.sprite_sheets[texture_index as usize].clone(),
-                sheet_position: cgmath::Vector2::new(0, 0),
-            };
-
-            let character_state_component = component::CharacterStateComponent {
-                character_state: component::CharacterState::IDLE,
-            };
-
-            let collider_box_component = ColliderBoxComponent {
-                bottom_left: position_component.position - position_component.scale / 2.0,
-                top_right: position_component.position + position_component.scale / 2.0,
-            };
-
-            let metadata_component = component::MetadataComponent::new(true, false);
-
-            self.add_entity(
-                Some(position_component),
-                Some(vertex_array_component),
-                Some(sprite_animation_controller),
-                Some(sheet_position_component),
-                Some(character_state_component),
-                Some(collider_box_component),
-                None,
-                Some(metadata_component),
-                None,
-            )
+            //     self.add_entity(
+            //         Some(position_component),
+            //         Some(vertex_array_component),
+            //         Some(sprite_animation_controller),
+            //         Some(sheet_position_component),
+            //         Some(character_state_component),
+            //         Some(collider_box_component),
+            //         None,
+            //         Some(metadata_component),
+            //         None,
+            //     )
         };
+
+        // let minotaur = {
+        //     let position_component = component::PositionComponent {
+        //         position: cgmath::Vector2::new(232., 132.),
+        //         scale: cgmath::Vector2::new(64., 64.),
+        //     };
+
+        //     let texture_index = 1; // warrior
+
+        //     let vertex_array_component = component::VertexArrayComponent::textured_quad(
+        //         texture_index,
+        //         component::VertexArrayComponent::OBJECT_Z,
+        //     );
+        //     let sprite_animation_idle = animation::SpriteAnimation {
+        //         animation_index: 0,
+        //         sprite_count: 10,
+        //         start_index: 0,
+        //         per_sprite_duration: Duration::new(0, 125000000),
+        //         current_elapsed_time: Duration::new(0, 0),
+        //     };
+        //     let sprite_animation_run = animation::SpriteAnimation {
+        //         animation_index: 0,
+        //         sprite_count: 10,
+        //         start_index: 20,
+        //         per_sprite_duration: Duration::new(0, 125000000),
+        //         current_elapsed_time: Duration::new(0, 0),
+        //     };
+        //     let sprite_animation_attack = animation::SpriteAnimation {
+        //         animation_index: 0,
+        //         sprite_count: 10,
+        //         start_index: 30,
+        //         per_sprite_duration: Duration::new(0, 125000000),
+        //         current_elapsed_time: Duration::new(0, 0),
+        //     };
+
+        //     let mut sprite_animation_controller =
+        //         animation::SpriteAnimationControllerComponent::new();
+        //     sprite_animation_controller
+        //         .animation_map
+        //         .insert(component::CharacterState::IDLE, sprite_animation_idle);
+        //     sprite_animation_controller
+        //         .animation_map
+        //         .insert(component::CharacterState::MOVE, sprite_animation_run);
+        //     sprite_animation_controller
+        //         .animation_map
+        //         .insert(component::CharacterState::ATTACK, sprite_animation_attack);
+
+        //     let sheet_position_component = sprite::SheetPositionComponent {
+        //         sprite_sheet: self.sprite_sheets[texture_index as usize].clone(),
+        //         sheet_position: cgmath::Vector2::new(0, 0),
+        //     };
+
+        //     let character_state_component = component::CharacterStateComponent {
+        //         character_state: component::CharacterState::IDLE,
+        //     };
+
+        //     let collider_box_component = ColliderBoxComponent {
+        //         bottom_left: position_component.position - position_component.scale / 2.0,
+        //         top_right: position_component.position + position_component.scale / 2.0,
+        //     };
+
+        //     let metadata_component = component::MetadataComponent::new(true, false);
+
+        //     self.add_entity(
+        //         Some(position_component),
+        //         Some(vertex_array_component),
+        //         Some(sprite_animation_controller),
+        //         Some(sheet_position_component),
+        //         Some(character_state_component),
+        //         Some(collider_box_component),
+        //         None,
+        //         Some(metadata_component),
+        //         None,
+        //     )
+        // };
 
         debug!("{:?}", self.vertex_array_components);
         // debug!(

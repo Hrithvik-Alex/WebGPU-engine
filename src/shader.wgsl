@@ -1,3 +1,6 @@
+//#include uniform.wgsl
+//#include texture.wgsl
+
 struct VertexInput {
     @location(0) position: vec3<f32>,
     @location(1) tex_coords: vec2<f32>,
@@ -13,27 +16,7 @@ struct VertexOutput {
     @location(3) world_position: vec4<f32>,
 };
 
-struct CameraUniform {
-    view_proj: mat4x4<f32>,
-};
 
-struct WorldUniform {
-    matrix: mat4x4<f32>,
-};
-
-// struct ProjectionUniform {
-//     proj: mat4x4<f32>,
-// };
-
-@group(0) @binding(0) 
-var<uniform> camera: CameraUniform;
-
-@group(0) @binding(1) 
-var<uniform> world: WorldUniform;
-// @group(1) @binding(1) // 2.
-// var<uniform> projection: ProjectionUniform;
-@group(0) @binding(2)
-var<uniform> screen_resolution: vec2<f32>;
 
 @vertex
 fn vs_main(
@@ -58,35 +41,12 @@ struct LightUniform {
     _padding: vec2<f32>
 };
 
-@group(1) @binding(0)
+@group(2) @binding(0)
 var<storage> light_uniforms: array<LightUniform>;
-@group(1) @binding(1)
+@group(2) @binding(1)
 var<uniform> light_len: u32;
 
-@group(2) @binding(0)
-var pixel_sampler: sampler;
 
-@group(2) @binding(1)
-var t_character: texture_2d<f32>;
-@group(2) @binding(2)
-var n_character: texture_2d<f32>;
-
-@group(2) @binding(3)
-var t_minotaur: texture_2d<f32>;
-@group(2) @binding(4)
-var n_minotaur: texture_2d<f32>;
-
-@group(2) @binding(5)
-var t_bg1: texture_2d<f32>;
-
-@group(2) @binding(6)
-var t_bg2: texture_2d<f32>;
-
-@group(2) @binding(7)
-var t_bg3: texture_2d<f32>;
-
-@group(2) @binding(8)
-var t_bg4: texture_2d<f32>;
 
 
 @fragment
@@ -108,8 +68,8 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 
         case 1u: {
             color = textureSample(t_minotaur, pixel_sampler, in.tex_coords);
-            normal = textureSample(n_minotaur, pixel_sampler, in.tex_coords);
-            has_normal = true;
+            // normal = textureSample(n_minotaur, pixel_sampler, in.tex_coords);
+            // has_normal = true;
         }
 
         case 2u: {
