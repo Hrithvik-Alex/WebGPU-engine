@@ -572,17 +572,19 @@ impl<'a> State<'a> {
                 component::VertexArrayComponent::OBJECT_Z,
             );
 
-            //     self.add_entity(
-            //         Some(position_component),
-            //         Some(vertex_array_component),
-            //         Some(sprite_animation_controller),
-            //         Some(sheet_position_component),
-            //         Some(character_state_component),
-            //         Some(collider_box_component),
-            //         None,
-            //         Some(metadata_component),
-            //         None,
-            //     )
+            let metadata_component = component::MetadataComponent::new(true, false);
+
+            self.add_entity(
+                Some(position_component),
+                Some(vertex_array_component),
+                None,
+                None,
+                None,
+                None,
+                None,
+                Some(metadata_component),
+                None,
+            )
         };
 
         // let minotaur = {

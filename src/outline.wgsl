@@ -1,18 +1,19 @@
 //#include uniform.wgsl
 //#include texture.wgsl
+//#include model_vertex.wgsl
 
-struct VertexInput {
-    @location(0) position: vec3<f32>,
-    @location(1) tex_coords: vec2<f32>,
-    @location(3) extra_info: u32,
-};
+// struct VertexInput {
+//     @location(0) position: vec3<f32>,
+//     @location(1) tex_coords: vec2<f32>,
+//     @location(3) extra_info: u32,
+// };
 
-struct VertexOutput {
-    @invariant @builtin(position) clip_position: vec4<f32>,
-    @location(0) world_position: vec4<f32>,
-    @location(1) tex_coords: vec2<f32>,
-    @location(2) extra_info: u32,
-};
+// struct VertexOutput {
+//     @invariant @builtin(position) clip_position: vec4<f32>,
+//     @location(0) world_position: vec4<f32>,
+//     @location(1) tex_coords: vec2<f32>,
+//     @location(2) extra_info: u32,
+// };
 
 
 
