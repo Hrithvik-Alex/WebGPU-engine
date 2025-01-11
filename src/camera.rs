@@ -385,9 +385,9 @@ impl CameraController {
                                         * parallax_component.move_speed
                                         / 200000.)
                                     % 1.0;
-                                if screen_position.x > camera.width as f32 {
-                                    debug!("{:?}", coord);
-                                }
+                                // if screen_position.x > camera.width as f32 {
+                                //     debug!("{:?}", coord);
+                                // }
                             });
 
                         let new_position_world_space = world_uniform_inv

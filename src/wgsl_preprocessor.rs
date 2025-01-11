@@ -9,7 +9,7 @@ use log::debug;
 fn get_code(shader_file: &str) -> Result<String, Error> {
     let current_dir = env::current_dir()?;
 
-    let shader_path = current_dir.join("src").join(shader_file);
+    let shader_path = current_dir.join("src/shaders/").join(shader_file);
     debug!("{:?}", shader_path);
 
     fs::read_to_string(shader_path)
