@@ -7,8 +7,8 @@ use crate::component::Component;
 // This is so we can store this in a buffer
 #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct WorldUniform {
-    pub mat: [[f32; 4]; 4],
-    pub inv_mat: [[f32; 4]; 4],
+    pub world_to_screen: [[f32; 4]; 4],
+    pub screen_to_world: [[f32; 4]; 4],
 }
 
 // impl Component for WorldUniform {
@@ -23,12 +23,12 @@ impl WorldUniform {
 
     pub fn new() -> Self {
         Self {
-            mat: cgmath::Matrix4::identity().into(),
-            inv_mat: cgmath::Matrix4::identity().into(),
+            world_to_screen: cgmath::Matrix4::identity().into(),
+            screen_to_world: cgmath::Matrix4::identity().into(),
         }
     }
 
-    fn calc(&self, width: u32, height: u32) -> cgmath::Matrix4<f32> {
+    fn calc(width: u32, height: u32) -> cgmath::Matrix4<f32> {
         #[cfg_attr(rustfmt, rustfmt_skip)]
          cgmath::Matrix4::new(
             width as f32/Self::WORLD_SCREEN_WIDTH as f32, 0., 0., 0.,
@@ -39,16 +39,16 @@ impl WorldUniform {
     }
 
     pub fn resize(&mut self, width: u32, height: u32) {
-        let mat = self.calc(width, height);
-        assert!(mat.is_invertible()); // I want to know if this ever happens... lol
-        self.mat = mat.into();
-        self.inv_mat = mat.invert().unwrap().into();
+        let mat = Self::calc(width, height);
+        assert!((mat * 1000.).is_invertible()); // I want to know if this ever happens... lol
+        self.world_to_screen = mat.into();
+        self.screen_to_world = mat.invert().unwrap().into();
     }
 
     pub fn get_buffer(&self, device: &wgpu::Device) -> wgpu::Buffer {
         device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("ortho buffer"),
-            contents: bytemuck::cast_slice(&[self.mat]),
+            label: Some("world uniform"),
+            contents: bytemuck::cast_slice(&[self.world_to_screen, self.screen_to_world]),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         })
     }

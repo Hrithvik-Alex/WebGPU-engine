@@ -1,3 +1,4 @@
+use std::convert;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -19,6 +20,7 @@ use cgmath::ElementWise;
 use cgmath::Vector2;
 use egui_winit::winit::window::Window;
 use log::debug;
+use wgpu::core::identity;
 use wgpu::util::DeviceExt;
 use wgpu::BindGroupDescriptor;
 use wgpu::BufferSlice;
@@ -30,18 +32,31 @@ pub struct RenderSystem {
     // textures: Vec<&'a texture::Texture>,
     // context: &'a context::Context<'a>,
     orig_render_pipeline: wgpu::RenderPipeline,
+    collectible_render_pipeline: wgpu::RenderPipeline,
     debug_render_pipeline: wgpu::RenderPipeline,
     // debug_bind_group_layout: wgpu::PipelineLayout,
     wireframe_render_pipeline: wgpu::RenderPipeline,
     wireframe_bind_group_layout: wgpu::BindGroupLayout,
     post_render_pipeline: wgpu::RenderPipeline,
     post_bind_group_layout: wgpu::BindGroupLayout,
-    storage_bind_group_layout: wgpu::BindGroupLayout,
+    light_bind_group_layout: wgpu::BindGroupLayout,
     texture_bind_group: wgpu::BindGroup,
     uniform_bind_group_layout: wgpu::BindGroupLayout,
     stencil_compute_pipeline: wgpu::ComputePipeline,
     stencil_compute_bind_group_layout: wgpu::BindGroupLayout,
     depth_stencil: texture::TextureBasic,
+}
+
+struct ModelBuffer {
+    vertices: Vec<ModelVertex2d>,
+    indices: Vec<u32>,
+}
+
+struct PipelineInfo<'a> {
+pos: &'a component::PositionComponent,
+v_arr: &'a component::VertexArrayComponent,
+light: &'a Option<uniform::LightComponent>,
+metadata: &'a component::MetadataComponent,
 }
 
 impl RenderSystem {
@@ -63,6 +78,9 @@ impl RenderSystem {
     const OUTLINE_SCALE_FACTOR: f32 = 1.1;
     const WORKGROUP_SIZE_X: u32 = 8;
     const WORKGROUP_SIZE_Y: u32 = 8;
+    const AMBIENT_LIGHT_INTENSITY : f32 = 0.2;
+
+
 
     pub fn new(textures: &Vec<Arc<texture::Texture>>, context: &context::Context) -> Self {
         // debug!("{:?}", camera_buffer);
@@ -104,14 +122,24 @@ impl RenderSystem {
                             },
                             count: None,
                         },
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 3,
+                            visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Buffer {
+                                ty: wgpu::BufferBindingType::Uniform,
+                                has_dynamic_offset: false,
+                                min_binding_size: None,
+                            },
+                            count: None,
+                        },
                     ],
                 });
 
-        let storage_bind_group_layout =
+        let light_bind_group_layout =
             context
                 .device
                 .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                    label: Some("storage bind group layout"),
+                    label: Some("light bind group layout"),
                     entries: &[
                         wgpu::BindGroupLayoutEntry {
                             binding: 0,
@@ -133,6 +161,16 @@ impl RenderSystem {
                             },
                             count: None,
                         },
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 2,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Buffer {
+                                ty: wgpu::BufferBindingType::Uniform,
+                                has_dynamic_offset: false,
+                                min_binding_size: None,
+                            },
+                            count: None,
+                        },
                     ],
                 });
 
@@ -141,17 +179,25 @@ impl RenderSystem {
         let bind_group_layouts: Vec<&wgpu::BindGroupLayout> = vec![
             &uniform_bind_group_layout,
             &texture_bind_group_layout,
-            &storage_bind_group_layout,
+            &light_bind_group_layout,
         ];
 
         // bind_group_layouts.extend(textures.iter().map(|texture| &texture.bind_group_layout));
 
-        let shader: wgpu::ShaderModule =
+        let standard_shader: wgpu::ShaderModule =
             context
                 .device
                 .create_shader_module(wgpu::ShaderModuleDescriptor {
-                    label: Some("shader"),
-                    source: wgpu::ShaderSource::Wgsl(wgsl_preprocessor::process("shader.wgsl").into()),
+                    label: Some("standard shader"),
+                    source: wgpu::ShaderSource::Wgsl(wgsl_preprocessor::process("standard.wgsl").into()),
+                });
+        
+        let collectible_shader: wgpu::ShaderModule =
+            context
+                .device
+                .create_shader_module(wgpu::ShaderModuleDescriptor {
+                    label: Some("hover shader"),
+                    source: wgpu::ShaderSource::Wgsl(wgsl_preprocessor::process("hover.wgsl").into()),
                 });
 
         let render_pipeline_layout =
@@ -167,12 +213,22 @@ impl RenderSystem {
             "Original Render Pipeline",
             &context,
             &render_pipeline_layout,
-            &shader,
+            &standard_shader,
             Some(Self::STANDARD_STENCIL_STATE),
             &[model::ModelVertex2d::desc()],
             None,
         );
 
+        let collectible_render_pipeline = Self::create_pipeline(
+            "Collectible Render Pipeline",
+            &context,
+            &render_pipeline_layout,
+            &collectible_shader,
+            Some(Self::STANDARD_STENCIL_STATE),
+            &[model::ModelVertex2d::desc()],
+            None,
+        );
+        
         let depth_stencil = texture::TextureBasic::create_depth_texture(
             &context.device,
             &context.config,
@@ -195,6 +251,7 @@ impl RenderSystem {
 
         Self {
             orig_render_pipeline,
+            collectible_render_pipeline,
             debug_render_pipeline,
             // debug_bind_group_layout,
             wireframe_render_pipeline,
@@ -202,7 +259,7 @@ impl RenderSystem {
             post_render_pipeline,
             post_bind_group_layout,
             uniform_bind_group_layout,
-            storage_bind_group_layout,
+            light_bind_group_layout,
             texture_bind_group,
             stencil_compute_pipeline,
             stencil_compute_bind_group_layout,
@@ -344,31 +401,18 @@ impl RenderSystem {
     }
 
     fn get_vertex_and_lighting_data(
-        positions: &component::EntityMap<component::PositionComponent>,
-        vertex_arrays: &component::EntityMap<component::VertexArrayComponent>,
-        lights: &component::EntityMap<uniform::LightComponent>,
-        metadata_components: &component::EntityMap<component::MetadataComponent>,
-    ) -> (Vec<ModelVertex2d>, Vec<u32>, Vec<LightUniform>, usize) {
-        utils::zip4_entities(positions, vertex_arrays, lights, metadata_components)
-            .filter_map(|(_, pos, vertex_array, light, metadata_component)| {
-                pos.as_ref().and_then(|pos| {
-                    vertex_array.as_ref().map(|vertex_array| {
-                        (
-                            pos,
-                            vertex_array,
-                            light,
-                            metadata_component.as_ref().unwrap(),
-                        )
-                    })
-                })
-            })
+pipeline_infos: Vec<PipelineInfo>
+    ) -> (ModelBuffer, Vec<LightUniform>, usize) {
+        let (vertices, indices, light_uniforms, len) = 
+        
+        pipeline_infos.iter()
             .fold(
                 (Vec::new(), Vec::new(), Vec::new(), 0),
                 |(mut vertices, mut indices, mut light_uniforms, i),
-                 (pos, vertex_array, light, metadata_component)| {
+                PipelineInfo {pos,  v_arr, light,metadata}| {
                     let cur_len = vertices.len();
                     let (entity_vertices, entity_indices) =
-                        Self::get_vertices_for_entity(pos, vertex_array, cur_len);
+                        Self::get_vertices_for_entity(pos, v_arr, cur_len);
                     vertices.extend(entity_vertices);
                     indices.extend(entity_indices);
 
@@ -377,7 +421,7 @@ impl RenderSystem {
                             position: cgmath::Vector3::new(
                                 pos.position.x,
                                 pos.position.y,
-                                vertex_array.z_value,
+                                v_arr.z_value,
                             )
                             .into(),
                             color: light.color.into(),
@@ -391,7 +435,8 @@ impl RenderSystem {
 
                     (vertices, indices, light_uniforms, i + 1)
                 },
-            )
+            );
+            (ModelBuffer{ vertices, indices}, light_uniforms, len)
     }
 
     pub fn render(
@@ -425,6 +470,18 @@ impl RenderSystem {
                     ]),
                     usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
                 });
+
+
+
+       let time_buffer = context
+                    .device
+                    .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                        label: Some("Time Uniform Buffer"),
+                        contents: bytemuck::cast_slice(&[time_elapsed.as_secs_f32()]),
+                        usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+                    });
+
+
         let uniform_bind_group = context
             .device
             .create_bind_group(&wgpu::BindGroupDescriptor {
@@ -447,38 +504,46 @@ impl RenderSystem {
                         binding: 2,
                         resource: screen_resolution_buffer.as_entire_binding(),
                     },
+                    
+                    wgpu::BindGroupEntry {
+                        binding: 3,
+                        resource: time_buffer.as_entire_binding(),
+                    },
                 ],
-                label: Some("camera bind group"),
+                label: Some("uniform bind group"),
             });
 
-        let (all_vertices, all_indices, light_uniforms, _) = Self::get_vertex_and_lighting_data(
-            positions,
-            vertex_arrays,
-            lights,
-            metadata_components,
+
+        let (standard_pipeline_infos, collectible_pipeline_infos ): (Vec<_>, Vec<_>) = 
+        utils::zip4_entities(positions, vertex_arrays, lights, metadata_components)
+        .filter_map(|(_, pos, v_arr, light, metadata)| {
+            match (pos, v_arr, metadata ){
+                (Some(pos), Some(v_arr), Some(metadata)) => {
+                    Some(PipelineInfo {pos: pos, v_arr: v_arr, light: light, metadata: metadata})
+                }
+                _ => None
+            }
+        })
+        .partition(|pipeline_info| {
+           pipeline_info.v_arr.shader_type == component::ShaderType::STANDARD 
+        });
+
+        let (standard_model_buffer, standard_light_uniforms, _) = Self::get_vertex_and_lighting_data(
+standard_pipeline_infos
         );
 
-        let num_vertices = all_vertices.len();
-        let num_indices = all_indices.len();
+        let (collectible_model_buffer, collectible_light_uniforms, _) = Self::get_vertex_and_lighting_data(
+            collectible_pipeline_infos
+                    );
+
+
+        let num_vertices = standard_model_buffer.vertices.len();
+        let standard_num_indices = standard_model_buffer.indices.len();
 
         // debug!("{:?}", light_uniforms);
         // debug!("{:?}", all_vertices);
         // debug!("{:?}", all_indices.len());
-        let vertex_buffer = context
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Vertex Buffer"),
-                contents: bytemuck::cast_slice(&all_vertices),
-                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::STORAGE,
-            });
 
-        let index_buffer = context
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Index Buffer"),
-                contents: bytemuck::cast_slice(&all_indices),
-                usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::STORAGE,
-            });
 
         let mut encoder = context
             .device
@@ -492,23 +557,14 @@ impl RenderSystem {
         // let frame_buffer_b =
         //     texture::TextureBasic::create_basic(&context.device, &context.config, "frame buffer b");
 
-        let time_uniform = uniform::TimeUniform {
-            time: (time_elapsed.as_millis() % u32::MAX as u128) as f32,
-        };
-        let time_buffer = context
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Time Uniform Buffer"),
-                contents: bytemuck::cast_slice(&[time_uniform]),
-                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-            });
+
 
         let light_uniforms_buffer =
             context
                 .device
                 .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                     label: Some("Light Uniforms Buffer"),
-                    contents: bytemuck::cast_slice(&light_uniforms),
+                    contents: bytemuck::cast_slice(&[standard_light_uniforms.as_slice(), collectible_light_uniforms.as_slice()].concat()),
                     usage: wgpu::BufferUsages::STORAGE,
                 });
 
@@ -517,15 +573,23 @@ impl RenderSystem {
                 .device
                 .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                     label: Some("Light Len Buffer"),
-                    contents: bytemuck::cast_slice(&[light_uniforms.len()]),
+                    contents: bytemuck::cast_slice(&[standard_light_uniforms.len() + collectible_light_uniforms.len()]),
                     usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
                 });
-
+        
+        let ambient_light_intensity_buffer = 
+        context
+        .device
+        .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Light Len Buffer"),
+            contents: bytemuck::cast_slice(&[Self::AMBIENT_LIGHT_INTENSITY]),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
         // debug!("{:?}", bytemuck::cast_slice::<uniform::LightUniform, f32>(&light_uniforms));
 
-        let storage_bind_group = context.device.create_bind_group(&BindGroupDescriptor {
-            label: Some("storage bind group"),
-            layout: &self.storage_bind_group_layout,
+        let light_bind_group = context.device.create_bind_group(&BindGroupDescriptor {
+            label: Some("light bind group"),
+            layout: &self.light_bind_group_layout,
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
@@ -535,7 +599,11 @@ impl RenderSystem {
                     binding: 1,
                     resource: light_len_buffer.as_entire_binding(),
                 },
-            ],
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: ambient_light_intensity_buffer.as_entire_binding(),
+                },       
+                     ],
         });
 
         let output = context.surface.get_current_texture()?;
@@ -577,16 +645,65 @@ impl RenderSystem {
                 occlusion_query_set: None,
                 timestamp_writes: None,
             });
+
+            let standard_vertex_buffer = context
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Vertex Buffer"),
+                contents: bytemuck::cast_slice(&standard_model_buffer.vertices),
+                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::STORAGE,
+            });
+
+        let standard_index_buffer = context
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Index Buffer"),
+                contents: bytemuck::cast_slice(&standard_model_buffer.indices),
+                usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::STORAGE,
+            });
+        
+
+
             render_pass.set_pipeline(&self.orig_render_pipeline);
 
             render_pass.set_bind_group(0, &uniform_bind_group, &[]);
             render_pass.set_bind_group(1, &self.texture_bind_group, &[]);
 
-            render_pass.set_bind_group(2, &storage_bind_group, &[]);
+            render_pass.set_bind_group(2, &light_bind_group, &[]);
 
-            render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
-            render_pass.set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint32); // 1.
-            render_pass.draw_indexed(0..all_indices.len() as u32, 0, 0..1);
+            render_pass.set_vertex_buffer(0, standard_vertex_buffer.slice(..));
+            render_pass.set_index_buffer(standard_index_buffer.slice(..), wgpu::IndexFormat::Uint32); // 1.
+            render_pass.draw_indexed(0..standard_model_buffer.indices.len() as u32, 0, 0..1);
+
+            let collectible_vertex_buffer = context
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Vertex Buffer"),
+                contents: bytemuck::cast_slice(&collectible_model_buffer.vertices),
+                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::STORAGE,
+            });
+
+        let collectible_index_buffer = context
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Index Buffer"),
+                contents: bytemuck::cast_slice(&collectible_model_buffer.indices),
+                usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::STORAGE,
+            });
+
+            render_pass.set_pipeline(&self.collectible_render_pipeline);
+
+            render_pass.set_bind_group(0, &uniform_bind_group, &[]);
+            render_pass.set_bind_group(1, &self.texture_bind_group, &[]);
+
+            render_pass.set_bind_group(2, &light_bind_group, &[]);
+
+            render_pass.set_vertex_buffer(0, collectible_vertex_buffer.slice(..));
+            render_pass.set_index_buffer(collectible_index_buffer.slice(..), wgpu::IndexFormat::Uint32); // 1.
+            render_pass.draw_indexed(0..collectible_model_buffer.indices.len() as u32, 0, 0..1);
+
+
+
 
             render_pass.set_pipeline(&self.wireframe_render_pipeline);
 
@@ -599,16 +716,16 @@ impl RenderSystem {
                         entries: &[
                             wgpu::BindGroupEntry {
                                 binding: 0,
-                                resource: vertex_buffer.as_entire_binding(),
+                                resource: standard_vertex_buffer.as_entire_binding(),
                             },
                             wgpu::BindGroupEntry {
                                 binding: 1,
-                                resource: index_buffer.as_entire_binding(),
+                                resource: standard_index_buffer.as_entire_binding(),
                             },
                         ],
                     });
             render_pass.set_bind_group(1, &wireframe_bind_group, &[]);
-            render_pass.draw(0..num_indices as u32 * 2, 0..1); // TODO: slightly overdraws 6 instead of 5 edges per, maybe optimize?
+            render_pass.draw(0..standard_num_indices as u32 * 2, 0..1); // TODO: slightly overdraws 6 instead of 5 edges per, maybe optimize?
         }
 
         {

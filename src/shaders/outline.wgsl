@@ -22,10 +22,10 @@ fn vs_main(
     model: VertexInput
 ) -> VertexOutput {
     var out: VertexOutput;
-    out.clip_position =  camera.view_proj * /*camera.view *  */  (world.matrix * vec4<f32>(model.position, 1.0));
+    out.clip_position =  camera.screen_to_clip * /*camera.view *  */  (world.world_to_screen * vec4<f32>(model.position, 1.0));
     out.tex_coords = model.tex_coords;
     out.extra_info = model.extra_info;
-    out.world_position =(world.matrix * vec4<f32>(model.position, 1.0)); 
+    out.world_position =(world.world_to_screen * vec4<f32>(model.position, 1.0)); 
     return out;
 }
 

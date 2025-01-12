@@ -567,12 +567,13 @@ impl<'a> State<'a> {
 
             let texture_index = 1; // scroll
 
-            let vertex_array_component = component::VertexArrayComponent::textured_quad(
+            let mut vertex_array_component = component::VertexArrayComponent::textured_quad(
                 texture_index,
                 component::VertexArrayComponent::OBJECT_Z,
             );
+            vertex_array_component.shader_type = component::ShaderType::COLLECTIBLE;
 
-            let metadata_component = component::MetadataComponent::new(true, false);
+            let metadata_component = component::MetadataComponent::new(false, false);
 
             self.add_entity(
                 Some(position_component),

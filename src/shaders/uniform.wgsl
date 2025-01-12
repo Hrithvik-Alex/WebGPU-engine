@@ -1,9 +1,11 @@
 struct CameraUniform {
-    view_proj: mat4x4<f32>,
+    screen_to_clip: mat4x4<f32>,
+    clip_to_screen: mat4x4<f32>,
 };
 
 struct WorldUniform {
-    matrix: mat4x4<f32>,
+    world_to_screen: mat4x4<f32>,
+    screen_to_world: mat4x4<f32>,
 };
 
 // struct ProjectionUniform {
@@ -19,3 +21,5 @@ var<uniform> world: WorldUniform;
 // var<uniform> projection: ProjectionUniform;
 @group(0) @binding(2)
 var<uniform> screen_resolution: vec2<f32>;
+
+@group(0) @binding(3) var<uniform> time: f32;

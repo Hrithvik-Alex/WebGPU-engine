@@ -206,18 +206,78 @@ use crate::{
 // This is so we can store this in a buffer
 #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct OrthoUniform {
-    mat: [[f32; 4]; 4],
+    screen_to_clip: [[f32; 4]; 4],
+    clip_to_screen: [[f32; 4]; 4],
 }
 
 impl OrthoUniform {
     pub fn new() -> Self {
         Self {
-            mat: Matrix4::identity().into(),
+            screen_to_clip: Matrix4::identity().into(),
+            clip_to_screen: Matrix4::identity().into(),
         }
     }
 
-    pub fn update(&mut self, orthographic_camera: &OrthographicCamera) {
-        self.mat = orthographic_camera.get_matrix().into();
+    pub fn calc(
+        center: Vector3<f32>,
+        width: f32,
+        height: f32,
+        zfar: f32,
+        znear: f32,
+    ) -> Matrix4<f32> {
+        let two: f32 = 2.0;
+        let left = center.x - width / 2.0;
+        let right = center.x + width / 2.0;
+
+        let top = center.y + height / 2.0;
+        let bottom = center.y - height / 2.0;
+
+        let c0r0 = two / (right - left);
+        let c0r1 = f32::zero();
+        let c0r2 = f32::zero();
+        let c0r3 = f32::zero();
+
+        let c1r0 = f32::zero();
+        let c1r1 = -1. * two / (top - bottom);
+        let c1r2 = f32::zero();
+        let c1r3 = f32::zero();
+
+        let c2r0 = f32::zero();
+        let c2r1 = f32::zero();
+        let c2r2 = f32::one() / (zfar - znear);
+        let c2r3 = f32::zero();
+
+        let c3r0 = -(right + left) / (right - left);
+        let c3r1 = (top + bottom) / (top - bottom);
+        let c3r2 = -(znear) / (zfar - znear);
+        let c3r3 = f32::one();
+
+        #[cfg_attr(rustfmt, rustfmt_skip)]
+            Matrix4::new(
+                c0r0, c0r1, c0r2, c0r3,
+                c1r0, c1r1, c1r2, c1r3,
+                c2r0, c2r1, c2r2, c2r3,
+                c3r0, c3r1, c3r2, c3r3,
+            )
+    }
+
+    pub fn resize(&mut self, center: Vector3<f32>, width: f32, height: f32, zfar: f32, znear: f32) {
+        let mat = Self::calc(center, width, height, zfar, znear);
+
+        // for some dame reason mat.is_invertible and mat.invert use different equal functions to check
+        // if the det is 0, sigh. another reason to stop using cgmath. increasing number so really
+        // small values dont get counted as 0
+        assert!((mat * 1000.).is_invertible()); // I want to know if this ever happens... lol
+        self.screen_to_clip = mat.into();
+        self.clip_to_screen = mat.invert().unwrap().into();
+    }
+
+    pub fn get_buffer(&self, device: &wgpu::Device) -> wgpu::Buffer {
+        device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("ortho buffer"),
+            contents: bytemuck::cast_slice(&[self.screen_to_clip, self.clip_to_screen]),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        })
     }
 }
 
@@ -228,6 +288,8 @@ pub struct OrthographicCamera {
     znear: f32,
     zfar: f32,
     center: Vector3<f32>,
+
+    uniform: OrthoUniform,
 }
 
 impl OrthographicCamera {
@@ -248,6 +310,7 @@ impl OrthographicCamera {
             znear,
             zfar,
             center,
+            uniform: OrthoUniform::new(),
         }
     }
 
@@ -267,47 +330,14 @@ impl OrthographicCamera {
 
     pub fn update_position(&mut self, position: Vector3<f32>) {
         self.center = position;
+        self.uniform
+            .resize(self.center, self.width, self.height, self.zfar, self.znear);
     }
 
     pub fn update_position_delta(&mut self, position: Vector3<f32>) {
         self.center += position;
-    }
-
-    pub fn get_matrix(&self) -> Matrix4<f32> {
-        let two: f32 = 2.0;
-        let left = self.center.x - self.width as f32 / 2.0;
-        let right = self.center.x + self.width as f32 / 2.0;
-
-        let top = self.center.y + self.height as f32 / 2.0;
-        let bottom = self.center.y - self.height as f32 / 2.0;
-
-        let c0r0 = two / (right - left);
-        let c0r1 = f32::zero();
-        let c0r2 = f32::zero();
-        let c0r3 = f32::zero();
-
-        let c1r0 = f32::zero();
-        let c1r1 = -1. * two / (top - bottom);
-        let c1r2 = f32::zero();
-        let c1r3 = f32::zero();
-
-        let c2r0 = f32::zero();
-        let c2r1 = f32::zero();
-        let c2r2 = f32::one() / (self.zfar - self.znear);
-        let c2r3 = f32::zero();
-
-        let c3r0 = -(right + left) / (right - left);
-        let c3r1 = (top + bottom) / (top - bottom);
-        let c3r2 = -(self.znear) / (self.zfar - self.znear);
-        let c3r3 = f32::one();
-
-        #[cfg_attr(rustfmt, rustfmt_skip)]
-            Matrix4::new(
-                c0r0, c0r1, c0r2, c0r3,
-                c1r0, c1r1, c1r2, c1r3,
-                c2r0, c2r1, c2r2, c2r3,
-                c3r0, c3r1, c3r2, c3r3,
-            )
+        self.uniform
+            .resize(self.center, self.width, self.height, self.zfar, self.znear);
     }
 
     pub fn resize(&mut self, width: u32, height: u32) {
@@ -319,16 +349,13 @@ impl OrthographicCamera {
             + disp.mul_element_wise(vec3(width / self.width, height / self.height, 1.));
         self.width = width;
         self.height = height;
+
+        self.uniform
+            .resize(self.center, width, height, self.zfar, self.znear);
     }
 
     pub fn get_buffer(&self, device: &wgpu::Device) -> wgpu::Buffer {
-        let mut ortho_uniform = OrthoUniform::new();
-        ortho_uniform.update(self);
-        device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("ortho buffer"),
-            contents: bytemuck::cast_slice(&[ortho_uniform]),
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        })
+        self.uniform.get_buffer(device)
     }
 }
 
@@ -344,8 +371,8 @@ impl CameraController {
         vertex_array_components: &mut EntityMap<component::VertexArrayComponent>,
         position_components: &mut EntityMap<component::PositionComponent>,
     ) {
-        let world_uniform_reg: cgmath::Matrix4<f32> = world_uniform.mat.into();
-        let world_uniform_inv: cgmath::Matrix4<f32> = world_uniform.inv_mat.into();
+        let world_uniform_reg: cgmath::Matrix4<f32> = world_uniform.world_to_screen.into();
+        let world_uniform_inv: cgmath::Matrix4<f32> = world_uniform.screen_to_world.into();
 
         let screen_position = world_uniform_reg
             * cgmath::Vector4::new(player_position_vec.x, player_position_vec.y, 1.0, 1.0);

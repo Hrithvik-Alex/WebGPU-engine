@@ -1,10 +1,12 @@
-struct CameraUniform {
-    view_proj: mat4x4<f32>,
-};
+//#include uniform.wgsl
 
-struct WorldUniform {
-    matrix: mat4x4<f32>,
-};
+// struct CameraUniform {
+//     view_proj: mat4x4<f32>,
+// };
+
+// struct WorldUniform {
+//     matrix: mat4x4<f32>,
+// };
 
 // struct ProjectionUniform {
 //     proj: mat4x4<f32>,
@@ -14,11 +16,11 @@ struct VertexOut {
   @builtin(position) position: vec4f,
 };
 
-@group(0) @binding(0) 
-var<uniform> camera: CameraUniform;
+// @group(0) @binding(0) 
+// var<uniform> camera: CameraUniform;
 
-@group(0) @binding(1) 
-var<uniform> world: WorldUniform;
+// @group(0) @binding(1) 
+// var<uniform> world: WorldUniform;
 
 @group(1) @binding(0)
 var<storage, read> positions: array<f32>;
@@ -43,7 +45,7 @@ var<storage, read> indices: array<u32>;
 
 
   var vOut: VertexOut;
-  vOut.position = camera.view_proj * ( world.matrix * position );
+  vOut.position = camera.screen_to_clip * ( world.world_to_screen * position );
   return vOut;
 }
 

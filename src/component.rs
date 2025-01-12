@@ -10,6 +10,13 @@ pub type EntityMap<T> = DenseSlotMap<Entity, Option<T>>;
 pub trait Component {
     fn name(&self) -> String;
 }
+
+#[derive(Debug, PartialEq)]
+pub enum ShaderType {
+    STANDARD,
+    COLLECTIBLE,
+}
+
 #[derive(Debug)]
 pub struct VertexArrayComponent {
     pub vertices: Vec<cgmath::Vector2<f32>>,
@@ -18,6 +25,7 @@ pub struct VertexArrayComponent {
     pub tex_coords: Vec<cgmath::Vector2<f32>>,
     pub texture_index: u32,
     pub is_flipped: bool,
+    pub shader_type: ShaderType,
     // TODO: this should maybe be in positioncomponent
     pub z_value: f32,
 }
@@ -64,6 +72,7 @@ impl VertexArrayComponent {
             whole_tex_coords,
             texture_index,
             is_flipped: false,
+            shader_type: ShaderType::STANDARD,
             z_value,
         }
     }
@@ -102,6 +111,7 @@ impl VertexArrayComponent {
             whole_tex_coords,
             texture_index: 999,
             is_flipped: false,
+            shader_type: ShaderType::STANDARD,
             z_value,
         }
     }
