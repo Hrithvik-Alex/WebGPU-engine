@@ -9,9 +9,13 @@ use crate::{
     state, utils,
 };
 
-pub struct ColliderBoxComponent {
+pub struct BoundingBox {
     pub bottom_left: Vector2<f32>,
     pub top_right: Vector2<f32>,
+}
+
+pub struct ColliderBoxComponent {
+    pub bounding_box: BoundingBox,
 }
 
 impl Component for ColliderBoxComponent {
@@ -59,24 +63,21 @@ impl PhysicsSystem {
         Self { tick_duration }
     }
 
-    fn is_colliding(a: &ColliderBoxComponent, b: &ColliderBoxComponent) -> bool {
+    fn is_colliding(a: &BoundingBox, b: &BoundingBox) -> bool {
         !(a.top_right.x <= b.bottom_left.x
             || a.bottom_left.x >= b.top_right.x
             || a.top_right.y <= b.bottom_left.y
             || a.bottom_left.y >= b.top_right.y)
     }
 
-    fn is_touching(a: &ColliderBoxComponent, b: &ColliderBoxComponent) -> bool {
+    fn is_touching(a: &BoundingBox, b: &BoundingBox) -> bool {
         !(a.top_right.x < b.bottom_left.x
             || a.bottom_left.x > b.top_right.x
             || a.top_right.y < b.bottom_left.y
             || a.bottom_left.y > b.top_right.y)
     }
 
-    fn get_collision_delta(
-        a: &ColliderBoxComponent,
-        b: &ColliderBoxComponent,
-    ) -> (Vector2<f32>, f32) {
+    fn get_collision_delta(a: &BoundingBox, b: &BoundingBox) -> (Vector2<f32>, f32) {
         let horizontal_depth = f32::min(
             a.top_right.x - b.bottom_left.x,
             b.top_right.x - a.bottom_left.x,
@@ -109,6 +110,7 @@ impl PhysicsSystem {
         collider_box_components: &mut EntityMap<ColliderBoxComponent>,
         metadata_components: &mut EntityMap<component::MetadataComponent>,
         physics_components: &mut EntityMap<PhysicsComponent>,
+        collectible_components: &mut EntityMap<component::CollectibleComponent>,
         current_time: Duration,
     ) {
         let tick_secs = self.tick_duration.as_secs_f32();
@@ -173,31 +175,55 @@ impl PhysicsSystem {
                     return cgmath::Vector2::zero();
                 };
                 let new_collision_box = ColliderBoxComponent {
-                    bottom_left: collider_box_component1.bottom_left + delta,
-                    top_right: collider_box_component1.top_right + delta,
+                    bounding_box: BoundingBox {
+                        bottom_left: collider_box_component1.bounding_box.bottom_left + delta,
+                        top_right: collider_box_component1.bounding_box.top_right + delta,
+                    },
                 };
 
                 let mut is_grounded = false;
                 // TODO: implement better collision detection, this is O(N^2) lol
-                let collision_detected = collider_box_components.iter().fold(
-                    Vector2::zero(),
-                    |mut collision_dir, (e2, box2)| {
-                        box2.as_ref().map(|box2| {
-                            let (direction, scale) =
-                                Self::get_collision_delta(&new_collision_box, &box2);
-                            if (e1 != e2 && Self::is_colliding(&new_collision_box, &box2)) {
-                                collision_dir += direction * scale;
-                            }
+                let collision_detected = collider_box_components
+                    .iter()
+                    .zip(collectible_components.iter_mut())
+                    .fold(
+                        Vector2::zero(),
+                        |mut collision_dir, ((e2, box2), (_, collectible))| {
+                            if (e1 != e2) {
+                                box2.as_ref().map(|box2| {
+                                    let (direction, scale) = Self::get_collision_delta(
+                                        &new_collision_box.bounding_box,
+                                        &box2.bounding_box,
+                                    );
+                                    if (Self::is_colliding(
+                                        &new_collision_box.bounding_box,
+                                        &box2.bounding_box,
+                                    )) {
+                                        collision_dir += direction * scale;
+                                    }
 
-                            if (e1 != e2 && Self::is_touching(&new_collision_box, &box2)) {
-                                if direction == (Vector2::unit_y() * -1.) {
-                                    is_grounded = true;
-                                }
+                                    if (Self::is_touching(
+                                        &new_collision_box.bounding_box,
+                                        &box2.bounding_box,
+                                    )) {
+                                        if direction == (Vector2::unit_y() * -1.) {
+                                            is_grounded = true;
+                                        }
+                                    }
+                                });
+
+                                collectible.as_mut().map(|collectible| {
+                                    if Self::is_colliding(
+                                        &new_collision_box.bounding_box,
+                                        &collectible.bounding_box,
+                                    ) {
+                                        collectible.is_collected = true;
+                                    }
+                                });
                             }
-                        });
-                        collision_dir
-                    },
-                );
+                            collision_dir
+                        },
+                    );
 
                 if (is_grounded) {
                     if physics_component.last_grounded_time.is_some() {
@@ -255,8 +281,8 @@ impl PhysicsSystem {
             .zip(collider_box_components.iter_mut())
             .for_each(|(delta, (_, collider_box_component))| {
                 if let Some(collider_box_component) = collider_box_component {
-                    collider_box_component.bottom_left += *delta;
-                    collider_box_component.top_right += *delta;
+                    collider_box_component.bounding_box.bottom_left += *delta;
+                    collider_box_component.bounding_box.top_right += *delta;
                 }
             });
     }

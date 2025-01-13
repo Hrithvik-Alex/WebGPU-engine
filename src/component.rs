@@ -4,6 +4,8 @@ use cgmath::ElementWise;
 use log::debug;
 use slotmap::DenseSlotMap;
 
+use crate::physics;
+
 pub type Entity = slotmap::DefaultKey;
 pub type EntityMap<T> = DenseSlotMap<Entity, Option<T>>;
 
@@ -240,3 +242,8 @@ pub struct ParallaxComponent {
 }
 
 impl ParallaxComponent {}
+
+pub struct CollectibleComponent {
+    pub is_collected: bool,
+    pub bounding_box: physics::BoundingBox,
+}

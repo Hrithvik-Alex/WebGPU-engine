@@ -2,6 +2,7 @@ mod animation;
 mod camera;
 mod component;
 mod context;
+mod game;
 mod gui;
 mod input;
 mod model;
