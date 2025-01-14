@@ -3,6 +3,7 @@ use crate::camera;
 use crate::component;
 use crate::component::EntityMap;
 use crate::context;
+use crate::game;
 use crate::gui;
 use crate::input;
 use crate::physics;
@@ -25,6 +26,7 @@ pub struct State<'a> {
     pub size: winit::dpi::PhysicalSize<u32>,
     pub window: Arc<Window>,
     pub gui: gui::Gui,
+    pub gui_info: gui::GuiInfo,
     pub sprite_sheets: Vec<Rc<RefCell<sprite::SpriteSheet>>>,
     pub position_components: component::EntityMap<component::PositionComponent>,
     pub camera: camera::OrthographicCamera,
@@ -39,12 +41,16 @@ pub struct State<'a> {
     pub metadata_components: component::EntityMap<component::MetadataComponent>,
     pub physics_components: component::EntityMap<physics::PhysicsComponent>,
     pub parallax_components: component::EntityMap<component::ParallaxComponent>,
+    pub collectible_components: component::EntityMap<component::CollectibleComponent>,
     // entities: Vec<component::Entity>,
 
     // systems
     pub input_handler: input::InputHandler,
     pub render_system: render_system::RenderSystem,
     pub physics_system: physics::PhysicsSystem,
+
+    // game
+    pub mira_game_state: game::MiraGameState,
 }
 
 impl<'a> State<'a> {
@@ -65,6 +71,11 @@ impl<'a> State<'a> {
             1,
             window.clone(),
         );
+
+        let gui_info = gui::GuiInfo {
+            fps: 0,
+            notes_collected: 0,
+        };
 
         let hero_sprite_sheet = Rc::new(RefCell::new(sprite::SpriteSheet::new(
             &context,
@@ -167,6 +178,7 @@ impl<'a> State<'a> {
         let metadata_components = EntityMap::new();
         let physics_components = EntityMap::new();
         let parallax_components = EntityMap::new();
+        let collectible_components = EntityMap::new();
 
         // let entities = position_components
         //     .keys()
@@ -182,6 +194,8 @@ impl<'a> State<'a> {
 
         let physics_system = physics::PhysicsSystem::new(Self::FIXED_UPDATE_DURATION);
 
+        let mira_game = game::MiraGameState::new();
+
         Self {
             window,
             context,
@@ -190,6 +204,7 @@ impl<'a> State<'a> {
             sprite_sheets,
             camera,
             gui,
+            gui_info,
             world_uniform,
             vertex_array_components,
             sprite_animation_controller_components,
@@ -200,9 +215,11 @@ impl<'a> State<'a> {
             metadata_components,
             physics_components,
             parallax_components,
+            collectible_components,
             input_handler,
             render_system,
             physics_system,
+            mira_game_state: mira_game,
         }
     }
 
@@ -249,6 +266,7 @@ impl<'a> State<'a> {
                 None,
                 Some(metadata_component),
                 Some(parallax_component),
+                None,
             )
         };
 
@@ -289,6 +307,7 @@ impl<'a> State<'a> {
                 None,
                 Some(metadata_component),
                 Some(parallax_component),
+                None,
             )
         };
 
@@ -329,6 +348,7 @@ impl<'a> State<'a> {
                 None,
                 Some(metadata_component),
                 Some(parallax_component),
+                None,
             )
         };
 
@@ -369,6 +389,7 @@ impl<'a> State<'a> {
                 None,
                 Some(metadata_component),
                 Some(parallax_component),
+                None,
             )
         };
 
@@ -388,8 +409,10 @@ impl<'a> State<'a> {
                 );
 
             let collider_box_component = ColliderBoxComponent {
-                bottom_left: position_component.position - position_component.scale / 2.0,
-                top_right: position_component.position + position_component.scale / 2.0,
+                bounding_box: physics::BoundingBox {
+                    bottom_left: position_component.position - position_component.scale / 2.0,
+                    top_right: position_component.position + position_component.scale / 2.0,
+                },
             };
 
             let metadata_component = component::MetadataComponent::new(false, false);
@@ -403,6 +426,7 @@ impl<'a> State<'a> {
                 Some(collider_box_component),
                 None,
                 Some(metadata_component),
+                None,
                 None,
             )
         };
@@ -442,6 +466,7 @@ impl<'a> State<'a> {
                 Some(light_component),
                 Some(metadata_component),
                 None,
+                None,
             )
         };
 
@@ -478,6 +503,7 @@ impl<'a> State<'a> {
                 None,
                 Some(light_component),
                 Some(metadata_component),
+                None,
                 None,
             )
         };
@@ -540,8 +566,10 @@ impl<'a> State<'a> {
             };
 
             let collider_box_component = ColliderBoxComponent {
-                bottom_left: position_component.position - position_component.scale / 2.0,
-                top_right: position_component.position + position_component.scale / 2.0,
+                bounding_box: physics::BoundingBox {
+                    bottom_left: position_component.position - position_component.scale / 2.0,
+                    top_right: position_component.position + position_component.scale / 2.0,
+                },
             };
 
             let metadata_component = component::MetadataComponent::new(true, true);
@@ -556,13 +584,14 @@ impl<'a> State<'a> {
                 None,
                 Some(metadata_component),
                 None,
+                None,
             )
         };
 
         let scroll = {
             let position_component = component::PositionComponent {
                 position: cgmath::Vector2::new(232., 132.),
-                scale: cgmath::Vector2::new(64., 64.),
+                scale: cgmath::Vector2::new(16., 16.),
             };
 
             let texture_index = 1; // scroll
@@ -575,6 +604,14 @@ impl<'a> State<'a> {
 
             let metadata_component = component::MetadataComponent::new(false, false);
 
+            let collectible_component = component::CollectibleComponent {
+                bounding_box: physics::BoundingBox {
+                    bottom_left: position_component.position - position_component.scale / 2.0,
+                    top_right: position_component.position + position_component.scale / 2.0,
+                },
+                is_collected: false,
+            };
+
             self.add_entity(
                 Some(position_component),
                 Some(vertex_array_component),
@@ -585,6 +622,7 @@ impl<'a> State<'a> {
                 None,
                 Some(metadata_component),
                 None,
+                Some(collectible_component),
             )
         };
 
@@ -660,7 +698,7 @@ impl<'a> State<'a> {
         //         None,
         //         Some(metadata_component),
         //         None,
-        //     )
+        //     None)
         // };
 
         debug!("{:?}", self.vertex_array_components);
@@ -687,6 +725,7 @@ impl<'a> State<'a> {
         light_component: Option<uniform::LightComponent>,
         metadata_component: Option<component::MetadataComponent>,
         parallax_component: Option<component::ParallaxComponent>,
+        collectible_component: Option<component::CollectibleComponent>,
     ) -> component::Entity {
         let entity = self.position_components.insert(position_component);
         self.vertex_array_components.insert(vertex_array_component);
@@ -710,6 +749,8 @@ impl<'a> State<'a> {
             .insert(Some(physics::PhysicsComponent::new()));
         // self.entities.push(entity);
         self.parallax_components.insert(parallax_component);
+
+        self.collectible_components.insert(collectible_component);
 
         entity
     }
@@ -736,6 +777,7 @@ impl<'a> State<'a> {
         self.light_components.remove(entity);
         self.metadata_components.remove(entity);
         self.physics_components.remove(entity);
+        self.collectible_components.remove(entity);
         // self.entities.
     }
 
@@ -763,5 +805,24 @@ impl<'a> State<'a> {
             .iter()
             .map(|sprite_sheet| sprite_sheet.borrow().texture())
             .collect::<Vec<Arc<texture::Texture>>>()
+    }
+
+    pub fn update_mira_game_state(&mut self) {
+        let entities_to_remove: Vec<_> = self
+            .collectible_components
+            .iter()
+            .filter_map(|(e, collectible_component)| match collectible_component {
+                Some(collectible_component) if collectible_component.is_collected => Some(e),
+                _ => None,
+            })
+            .collect();
+
+        self.mira_game_state.notes_collected += entities_to_remove.len() as u32;
+
+        entities_to_remove.iter().for_each(|entity| {
+            self.remove_entity(*entity);
+        });
+
+        self.gui_info.notes_collected = self.mira_game_state.notes_collected;
     }
 }

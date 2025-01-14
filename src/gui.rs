@@ -1,7 +1,10 @@
 use std::sync::Arc;
 
 use egui::epaint::Shadow;
-use egui::{Align2, Context, Visuals};
+use egui::{
+    include_image, Align2, ColorImage, Context, FontId, RichText, TextureHandle, TextureOptions,
+    Vec2, Visuals,
+};
 use egui_wgpu::Renderer;
 use egui_wgpu::ScreenDescriptor;
 
@@ -16,12 +19,14 @@ use crate::context;
 
 pub struct GuiInfo {
     pub fps: u32,
+    pub notes_collected: u32,
 }
 
 pub struct Gui {
     pub context: Context,
     pub state: State,
     renderer: Renderer,
+    scroll_image: TextureHandle,
 }
 
 impl Gui {
@@ -56,11 +61,20 @@ impl Gui {
             msaa_samples,
             false,
         );
+        let rgba = image::load_from_memory(
+            &std::fs::read("./assets/scroll.png").expect("failed to load scroll"),
+        )
+        .unwrap()
+        .to_rgba8()
+        .to_vec();
+        let image = ColorImage::from_rgba_unmultiplied([16, 16], &rgba);
+        let scroll_image = egui_context.load_texture("scroll", image, TextureOptions::default());
 
         Self {
             context: egui_context,
             state: egui_state,
             renderer: egui_renderer,
+            scroll_image,
         }
     }
 
@@ -93,7 +107,28 @@ impl Gui {
             //     // .background_color(Color32::from_black_alpha(0));
             // });
 
-            egui::Window::new("statistacks")
+            egui::Area::new(egui::Id::new("collectible info"))
+                .movable(false)
+                .anchor(Align2::LEFT_BOTTOM, [10.0, -10.0])
+                .show(&ctx, |mut ui| {
+                    ui.horizontal(|ui| {
+                        ui.add(
+                            egui::Image::new((
+                                self.scroll_image.id(),
+                                self.scroll_image.size_vec2(),
+                            ))
+                            .fit_to_exact_size(Vec2 { x: 64., y: 64. })
+                            .maintain_aspect_ratio(true),
+                        );
+
+                        ui.label(
+                            RichText::new(format!("{}", info.notes_collected))
+                                .font(FontId::proportional(40.0)),
+                        )
+                    })
+                });
+
+            egui::Window::new("statistics")
                 // .vscroll(true)
                 .default_open(true)
                 .max_width(1000.0)

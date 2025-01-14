@@ -121,6 +121,7 @@ impl<'a> ApplicationHandler for App<'a> {
                     &mut state.collider_box_components,
                     &mut state.metadata_components,
                     &mut state.physics_components,
+                    &mut state.collectible_components,
                     current_time,
                 );
 
@@ -150,9 +151,10 @@ impl<'a> ApplicationHandler for App<'a> {
                 &mut state.position_components,
             );
 
-            let gui_info = gui::GuiInfo {
-                fps: self.last_fps as u32,
-            };
+            state.update_mira_game_state();
+
+            state.gui_info.fps = self.last_fps as u32;
+
             if state
                 .gui
                 .state
@@ -196,7 +198,7 @@ impl<'a> ApplicationHandler for App<'a> {
                             current_time,
                             &state.world_uniform,
                             &state.camera,
-                            &gui_info,
+                            &state.gui_info,
                         );
                         match render_result {
                             Ok(_) => {}
