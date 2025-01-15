@@ -15,7 +15,7 @@ use egui_winit::winit::window::Window;
 use egui_winit::State;
 use log::debug;
 
-use crate::context;
+use crate::{context, game};
 
 pub struct GuiInfo {
     pub fps: u32,
@@ -89,12 +89,14 @@ impl Gui {
         window: Arc<Window>,
         window_surface_view: &TextureView,
         info: &GuiInfo,
-        // mut run_ui: impl FnMut(&Context),
+        game_mode: &mut game::GameMode, // mut run_ui: impl FnMut(&Context),
     ) {
         let screen_descriptor = ScreenDescriptor {
             size_in_pixels: [context.config.width, context.config.height],
             pixels_per_point: window.scale_factor() as f32,
         };
+        let rect = self.context.screen_rect().center();
+
         // self.state.set_pixels_per_point(window.scale_factor() as f32);
         let raw_input = self.state.take_egui_input(&window);
         let full_output = self.context.run(raw_input, |ctx| {
@@ -107,10 +109,41 @@ impl Gui {
             //     // .background_color(Color32::from_black_alpha(0));
             // });
 
-            egui::Area::new(egui::Id::new("collectible info"))
+
+
+            match *game_mode {
+                game::GameMode::POPUP => {
+
+                
+                let popup_size = egui::vec2(rect.x * 0.6, rect.y * 0.9); // Desired popup size
+
+                let mut open = true;
+                egui::Window::new("Popup")
+                    .collapsible(false)
+                    .resizable(false)
+                    .current_pos(rect - popup_size / 2.)
+                    .default_size(popup_size)
+                    .open(&mut open)
+                    .show(ctx, |ui| {
+                        ui.label("Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer enim lacus, commodo quis sem quis, posuere lacinia sem. Quisque quis lacus posuere, egestas massa quis, semper dolor. Fusce euismod sagittis nisi sit amet commodo. Cras ultricies rhoncus tortor a varius. Nam dui quam, feugiat nec ultrices eget, dictum condimentum mi. Nam sit amet metus ultrices, ultricies orci eu, consequat ipsum. Duis in enim hendrerit, pretium sapien at, congue libero.
+
+");
+
+                    });
+                
+                if !open {
+                    *game_mode = game::GameMode::STANDARD;
+                }
+
+            },
+            game::GameMode::STANDARD => {
+                egui::Area::new(egui::Id::new("collectible info"))
                 .movable(false)
                 .anchor(Align2::LEFT_BOTTOM, [10.0, -10.0])
                 .show(&ctx, |mut ui| {
+
+
+
                     ui.horizontal(|ui| {
                         ui.add(
                             egui::Image::new((
@@ -127,6 +160,8 @@ impl Gui {
                         )
                     })
                 });
+            }
+        }
 
             egui::Window::new("statistics")
                 // .vscroll(true)

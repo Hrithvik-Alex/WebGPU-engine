@@ -51,6 +51,7 @@ pub struct State<'a> {
 
     // game
     pub mira_game_state: game::MiraGameState,
+    pub game_mode: game::GameMode,
 }
 
 impl<'a> State<'a> {
@@ -220,6 +221,7 @@ impl<'a> State<'a> {
             render_system,
             physics_system,
             mira_game_state: mira_game,
+            game_mode: game::GameMode::STANDARD,
         }
     }
 
@@ -823,6 +825,9 @@ impl<'a> State<'a> {
             self.remove_entity(*entity);
         });
 
+        if entities_to_remove.len() > 0 {
+            self.game_mode = game::GameMode::POPUP;
+        }
         self.gui_info.notes_collected = self.mira_game_state.notes_collected;
     }
 }

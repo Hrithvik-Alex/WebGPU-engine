@@ -199,6 +199,7 @@ impl<'a> ApplicationHandler for App<'a> {
                             &state.world_uniform,
                             &state.camera,
                             &state.gui_info,
+                            &mut state.game_mode,
                         );
                         match render_result {
                             Ok(_) => {}

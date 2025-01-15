@@ -14,3 +14,9 @@ impl MiraGameState {
 
     pub fn reset(&mut self) {}
 }
+
+#[derive(Clone, Copy, PartialEq)]
+pub enum GameMode {
+    STANDARD,
+    POPUP,
+}

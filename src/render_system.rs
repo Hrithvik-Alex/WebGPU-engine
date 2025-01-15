@@ -5,6 +5,7 @@ use std::time::Duration;
 use crate::camera;
 use crate::component;
 use crate::context;
+use crate::game;
 use crate::gui;
 use crate::model;
 use crate::model::ModelVertex2d;
@@ -37,8 +38,10 @@ pub struct RenderSystem {
     // debug_bind_group_layout: wgpu::PipelineLayout,
     wireframe_render_pipeline: wgpu::RenderPipeline,
     wireframe_bind_group_layout: wgpu::BindGroupLayout,
-    post_render_pipeline: wgpu::RenderPipeline,
-    post_bind_group_layout: wgpu::BindGroupLayout,
+    post_standard_render_pipeline: wgpu::RenderPipeline,
+    post_popup_render_pipeline: wgpu::RenderPipeline,
+    post_standard_bind_group_layout: wgpu::BindGroupLayout,
+    post_popup_bind_group_layout: wgpu::BindGroupLayout,
     light_bind_group_layout: wgpu::BindGroupLayout,
     texture_bind_group: wgpu::BindGroup,
     uniform_bind_group_layout: wgpu::BindGroupLayout,
@@ -238,7 +241,22 @@ impl RenderSystem {
         let (wireframe_render_pipeline, wireframe_bind_group_layout) =
             Self::create_wireframe_pipeline(context, &uniform_bind_group_layout);
 
-        let (post_render_pipeline, post_bind_group_layout) = Self::create_post_pipeline(context);
+
+        let post_standard_shader = context
+            .device
+            .create_shader_module(wgpu::ShaderModuleDescriptor {
+                label: Some("post standard shader"),
+                source: wgpu::ShaderSource::Wgsl(wgsl_preprocessor::process("post_standard.wgsl").into()),
+            });
+        let (post_standard_render_pipeline, post_standard_bind_group_layout) = Self::create_post_pipeline(context, &post_standard_shader);
+
+        let post_popup_shader = context
+            .device
+            .create_shader_module(wgpu::ShaderModuleDescriptor {
+                label: Some("post popup shader"),
+                source: wgpu::ShaderSource::Wgsl(wgsl_preprocessor::process("post_popup.wgsl").into()),
+            });
+        let (post_popup_render_pipeline, post_popup_bind_group_layout) = Self::create_post_pipeline(context, &post_popup_shader);
 
         let (debug_render_pipeline) = Self::create_debug_pipeline(
             context,
@@ -256,8 +274,10 @@ impl RenderSystem {
             // debug_bind_group_layout,
             wireframe_render_pipeline,
             wireframe_bind_group_layout,
-            post_render_pipeline,
-            post_bind_group_layout,
+            post_standard_render_pipeline,
+            post_popup_render_pipeline,
+            post_standard_bind_group_layout,
+            post_popup_bind_group_layout,
             uniform_bind_group_layout,
             light_bind_group_layout,
             texture_bind_group,
@@ -454,6 +474,7 @@ pipeline_infos: Vec<PipelineInfo>
         world_uniform: &uniform::WorldUniform,
         camera: &camera::OrthographicCamera,
         gui_info: &gui::GuiInfo,
+        game_mode: &mut game::GameMode
     ) -> Result<(), wgpu::SurfaceError> {
         // let mut all_vertices: Vec<ModelVertex2d> = vec![];
         // let mut all_indices: Vec<u32> = vec![];
@@ -765,11 +786,21 @@ standard_pipeline_infos
                 timestamp_writes: None,
             });
 
+            let post_bind_group_layout = match game_mode {
+                game::GameMode::STANDARD => &self.post_standard_bind_group_layout,
+                game::GameMode::POPUP => &self.post_popup_bind_group_layout,
+            };
+
+            let post_render_pipeline = match game_mode {
+                game::GameMode::STANDARD => &self.post_standard_render_pipeline,
+                game::GameMode::POPUP => &self.post_popup_render_pipeline,
+            };
+
             let bind_group = context
                 .device
                 .create_bind_group(&wgpu::BindGroupDescriptor {
                     label: Some("post bind group"),
-                    layout: &self.post_bind_group_layout,
+                    layout: post_bind_group_layout,
                     entries: &[
                         wgpu::BindGroupEntry {
                             binding: 0,
@@ -785,7 +816,7 @@ standard_pipeline_infos
                         },
                     ],
                 });
-            render_pass.set_pipeline(&self.post_render_pipeline);
+            render_pass.set_pipeline(post_render_pipeline);
             render_pass.set_bind_group(0, &bind_group, &[]);
             render_pass.draw(0..6, 0..1);
         }
@@ -920,7 +951,7 @@ standard_pipeline_infos
         //     },
         // );
 
-        gui.draw(&context, &mut encoder, window, &surface_view, gui_info);
+        gui.draw(&context, &mut encoder, window, &surface_view, gui_info, game_mode);
 
         context.queue.submit(std::iter::once(encoder.finish()));
         output.present();
@@ -1273,13 +1304,9 @@ standard_pipeline_infos
 
     fn create_post_pipeline(
         context: &context::Context,
+        post_shader: &wgpu::ShaderModule
     ) -> (wgpu::RenderPipeline, wgpu::BindGroupLayout) {
-        let post_shader = context
-            .device
-            .create_shader_module(wgpu::ShaderModuleDescriptor {
-                label: Some("post shader"),
-                source: wgpu::ShaderSource::Wgsl(wgsl_preprocessor::process("post.wgsl").into()),
-            });
+
 
         let bind_group_layout =
             context
