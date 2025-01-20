@@ -1,6 +1,6 @@
 use crate::{
     component::{self, CharacterStateComponent, PositionComponent},
-    utils,
+    game, utils,
 };
 
 use std::time::Duration;
@@ -37,6 +37,7 @@ impl InputHandler {
         character_state_components: &mut component::EntityMap<component::CharacterStateComponent>,
         vertex_array_components: &mut component::EntityMap<component::VertexArrayComponent>,
         metadata_components: &mut component::EntityMap<component::MetadataComponent>,
+        game_mode: &mut game::GameMode,
     ) {
         let mut update_state = |state: component::CharacterState, is_flipped: Option<bool>| {
             utils::zip4_entities_mut(
@@ -77,45 +78,66 @@ impl InputHandler {
             // state.sprite.update_position(position + delta)
         };
 
-        match event.state {
-            ElementState::Pressed => match event.physical_key {
-                PhysicalKey::Code(KeyCode::Space) => (),
-                PhysicalKey::Code(KeyCode::KeyW) | PhysicalKey::Code(KeyCode::ArrowUp) => {
-                    self.up_pressed = true
-                }
-                PhysicalKey::Code(KeyCode::KeyA) | PhysicalKey::Code(KeyCode::ArrowLeft) => {
-                    self.left_pressed = true;
-                    update_state(component::CharacterState::MOVE, Some(true));
-                }
-                PhysicalKey::Code(KeyCode::KeyS) | PhysicalKey::Code(KeyCode::ArrowDown) => {
-                    self.down_pressed = true
-                }
-                PhysicalKey::Code(KeyCode::KeyD) | PhysicalKey::Code(KeyCode::ArrowRight) => {
-                    self.right_pressed = true;
-                    update_state(component::CharacterState::MOVE, Some(false));
-                }
-                _ => (),
-            },
+        match *game_mode {
+            game::GameMode::POPUP => {
+                update_state(component::CharacterState::IDLE, None);
+                self.up_pressed = false;
+                self.left_pressed = false;
+                self.right_pressed = false;
+                self.down_pressed = false;
 
-            ElementState::Released => match event.physical_key {
-                PhysicalKey::Code(KeyCode::KeyW) | PhysicalKey::Code(KeyCode::ArrowUp) => {
-                    self.up_pressed = false
+                match event.state {
+                    ElementState::Pressed => match event.physical_key {
+                        PhysicalKey::Code(KeyCode::Escape) => *game_mode = game::GameMode::STANDARD,
+                        _ => (),
+                    },
+                    _ => (),
                 }
-                PhysicalKey::Code(KeyCode::KeyA) | PhysicalKey::Code(KeyCode::ArrowLeft) => {
-                    self.left_pressed = false;
-                }
-                PhysicalKey::Code(KeyCode::KeyS) | PhysicalKey::Code(KeyCode::ArrowDown) => {
-                    self.down_pressed = false
-                }
-                PhysicalKey::Code(KeyCode::KeyD) | PhysicalKey::Code(KeyCode::ArrowRight) => {
-                    self.right_pressed = false;
-                }
-                _ => (),
-            },
-        }
+            }
+            game::GameMode::STANDARD => {
+                match event.state {
+                    ElementState::Pressed => match event.physical_key {
+                        PhysicalKey::Code(KeyCode::Space) => (),
+                        PhysicalKey::Code(KeyCode::KeyW) | PhysicalKey::Code(KeyCode::ArrowUp) => {
+                            self.up_pressed = true
+                        }
+                        PhysicalKey::Code(KeyCode::KeyA)
+                        | PhysicalKey::Code(KeyCode::ArrowLeft) => {
+                            self.left_pressed = true;
+                            update_state(component::CharacterState::MOVE, Some(true));
+                        }
+                        PhysicalKey::Code(KeyCode::KeyS)
+                        | PhysicalKey::Code(KeyCode::ArrowDown) => self.down_pressed = true,
+                        PhysicalKey::Code(KeyCode::KeyD)
+                        | PhysicalKey::Code(KeyCode::ArrowRight) => {
+                            self.right_pressed = true;
+                            update_state(component::CharacterState::MOVE, Some(false));
+                        }
+                        _ => (),
+                    },
 
-        if !self.left_pressed && !self.right_pressed {
-            update_state(component::CharacterState::IDLE, None);
+                    ElementState::Released => match event.physical_key {
+                        PhysicalKey::Code(KeyCode::KeyW) | PhysicalKey::Code(KeyCode::ArrowUp) => {
+                            self.up_pressed = false
+                        }
+                        PhysicalKey::Code(KeyCode::KeyA)
+                        | PhysicalKey::Code(KeyCode::ArrowLeft) => {
+                            self.left_pressed = false;
+                        }
+                        PhysicalKey::Code(KeyCode::KeyS)
+                        | PhysicalKey::Code(KeyCode::ArrowDown) => self.down_pressed = false,
+                        PhysicalKey::Code(KeyCode::KeyD)
+                        | PhysicalKey::Code(KeyCode::ArrowRight) => {
+                            self.right_pressed = false;
+                        }
+                        _ => (),
+                    },
+                }
+
+                if !self.left_pressed && !self.right_pressed {
+                    update_state(component::CharacterState::IDLE, None);
+                }
+            }
         }
     }
 

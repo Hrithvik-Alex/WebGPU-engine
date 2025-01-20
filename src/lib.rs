@@ -123,6 +123,7 @@ impl<'a> ApplicationHandler for App<'a> {
                     &mut state.physics_components,
                     &mut state.collectible_components,
                     current_time,
+                    &state.game_mode,
                 );
 
                 self.ticks_elapsed -= state::State::FIXED_UPDATE_DURATION;
@@ -172,16 +173,7 @@ impl<'a> ApplicationHandler for App<'a> {
             let textures = state.textures();
             if window_id == state.window.id() {
                 match event {
-                    WindowEvent::CloseRequested
-                    | WindowEvent::KeyboardInput {
-                        event:
-                            KeyEvent {
-                                state: ElementState::Pressed,
-                                physical_key: PhysicalKey::Code(KeyCode::Escape),
-                                ..
-                            },
-                        ..
-                    } => event_loop.exit(),
+                    WindowEvent::CloseRequested => event_loop.exit(),
                     WindowEvent::Resized(physical_size) => state.resize(physical_size),
 
                     WindowEvent::RedrawRequested => {
@@ -228,6 +220,7 @@ impl<'a> ApplicationHandler for App<'a> {
                         &mut state.character_state_components,
                         &mut state.vertex_array_components,
                         &mut state.metadata_components,
+                        &mut state.game_mode,
                     ),
 
                     _ => {}

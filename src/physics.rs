@@ -5,6 +5,7 @@ use log::debug;
 
 use crate::{
     component::{self, Component, EntityMap, PositionComponent},
+    game,
     input::InputHandler,
     state, utils,
 };
@@ -52,7 +53,7 @@ pub struct PhysicsSystem {
 }
 
 impl PhysicsSystem {
-    const MOVEMENT_SPEED: f32 = 100.;
+    const MOVEMENT_SPEED: f32 = 200.;
 
     const JUMP_VELOCITY: f32 = 300.;
     const JUMP_ACCELERATION: f32 = 600.;
@@ -112,7 +113,12 @@ impl PhysicsSystem {
         physics_components: &mut EntityMap<PhysicsComponent>,
         collectible_components: &mut EntityMap<component::CollectibleComponent>,
         current_time: Duration,
+        game_mode: &game::GameMode,
     ) {
+        if *game_mode == game::GameMode::POPUP {
+            return;
+        }
+
         let tick_secs = self.tick_duration.as_secs_f32();
         // let position_delta = cgmath::Vector2::new(x, y) * Self::MOVEMENT_SPEED * tick_secs;
 

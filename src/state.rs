@@ -395,42 +395,66 @@ impl<'a> State<'a> {
             )
         };
 
-        let ground = {
-            let position_component = component::PositionComponent {
-                position: cgmath::Vector2::new(
-                    uniform::WorldUniform::WORLD_SCREEN_WIDTH as f32 / 2.0,
-                    50.,
+        let tiles = {
+            let mut create_tile = |position, scale| {
+                let position_component = component::PositionComponent { position, scale };
+
+                let vertex_array_component: component::VertexArrayComponent =
+                    component::VertexArrayComponent::textured_quad(
+                        999,
+                        component::VertexArrayComponent::FOREGROUND_Z,
+                    );
+
+                let collider_box_component = ColliderBoxComponent {
+                    bounding_box: physics::BoundingBox {
+                        bottom_left: position_component.position - position_component.scale / 2.0,
+                        top_right: position_component.position + position_component.scale / 2.0,
+                    },
+                };
+
+                let metadata_component = component::MetadataComponent::new(false, false);
+
+                self.add_entity(
+                    Some(position_component),
+                    Some(vertex_array_component),
+                    None,
+                    None,
+                    None,
+                    Some(collider_box_component),
+                    None,
+                    Some(metadata_component),
+                    None,
+                    None,
+                )
+            };
+
+            let main_ground = create_tile(
+                cgmath::Vector2::new(uniform::WorldUniform::WORLD_SCREEN_WIDTH as f32 / 2.0, 50.),
+                cgmath::Vector2::new(uniform::WorldUniform::WORLD_SCREEN_WIDTH as f32, 100.),
+            );
+
+            let platform_scale = cgmath::Vector2::new(100., 20.);
+
+            let platform_1 = create_tile(
+                cgmath::Vector2::new(uniform::WorldUniform::WORLD_SCREEN_WIDTH as f32 + 60., 150.),
+                platform_scale,
+            );
+
+            let platform_2 = create_tile(
+                cgmath::Vector2::new(
+                    uniform::WorldUniform::WORLD_SCREEN_WIDTH as f32 + 160.,
+                    200.,
                 ),
-                scale: cgmath::Vector2::new(uniform::WorldUniform::WORLD_SCREEN_WIDTH as f32, 100.),
-            };
+                platform_scale,
+            );
 
-            let vertex_array_component: component::VertexArrayComponent =
-                component::VertexArrayComponent::textured_quad(
-                    999,
-                    component::VertexArrayComponent::FOREGROUND_Z,
-                );
-
-            let collider_box_component = ColliderBoxComponent {
-                bounding_box: physics::BoundingBox {
-                    bottom_left: position_component.position - position_component.scale / 2.0,
-                    top_right: position_component.position + position_component.scale / 2.0,
-                },
-            };
-
-            let metadata_component = component::MetadataComponent::new(false, false);
-
-            self.add_entity(
-                Some(position_component),
-                Some(vertex_array_component),
-                None,
-                None,
-                None,
-                Some(collider_box_component),
-                None,
-                Some(metadata_component),
-                None,
-                None,
-            )
+            let platform_3 = create_tile(
+                cgmath::Vector2::new(
+                    uniform::WorldUniform::WORLD_SCREEN_WIDTH as f32 + 260.,
+                    250.,
+                ),
+                platform_scale,
+            );
         };
 
         let light = {
