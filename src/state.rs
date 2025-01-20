@@ -13,14 +13,23 @@ use crate::sprite;
 use crate::texture;
 use crate::uniform;
 
+use lazy_static::lazy_static;
 use std::cell::RefCell;
+use std::fs;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use log::debug;
+use wgpu::naga::compact;
 use winit::window::Window;
 
+lazy_static! {
+    static ref SIGNPOST: String =
+        fs::read_to_string("./src/text/signpost.txt").expect("Failed to read the file");
+    static ref FIRST_SCROLL: String =
+        fs::read_to_string("./src/text/a.txt").expect("Failed to read the file");
+}
 pub struct State<'a> {
     pub context: context::Context<'a>,
     pub size: winit::dpi::PhysicalSize<u32>,
@@ -42,6 +51,7 @@ pub struct State<'a> {
     pub physics_components: component::EntityMap<physics::PhysicsComponent>,
     pub parallax_components: component::EntityMap<component::ParallaxComponent>,
     pub collectible_components: component::EntityMap<component::CollectibleComponent>,
+    pub sign_components: component::EntityMap<component::SignComponent>,
     // entities: Vec<component::Entity>,
 
     // systems
@@ -76,6 +86,8 @@ impl<'a> State<'a> {
         let gui_info = gui::GuiInfo {
             fps: 0,
             notes_collected: 0,
+            popup_text: "",
+            popup_type: gui::PopupType::SCROLL,
         };
 
         let hero_sprite_sheet = Rc::new(RefCell::new(sprite::SpriteSheet::new(
@@ -150,6 +162,15 @@ impl<'a> State<'a> {
             true,
         )));
 
+        let signpost_sprite_sheet = Rc::new(RefCell::new(sprite::SpriteSheet::new(
+            &context,
+            "./assets/signpost.png".to_string(),
+            None,
+            32,
+            32,
+            true,
+        )));
+
         let sprite_sheets = vec![
             hero_sprite_sheet.clone(),
             scroll_sprite_sheet.clone(),
@@ -157,6 +178,7 @@ impl<'a> State<'a> {
             parallax_2_sprite_sheet.clone(),
             parallax_3_sprite_sheet.clone(),
             parallax_4_sprite_sheet.clone(),
+            signpost_sprite_sheet.clone(),
         ];
 
         // let textures = sprite_sheets
@@ -180,7 +202,7 @@ impl<'a> State<'a> {
         let physics_components = EntityMap::new();
         let parallax_components = EntityMap::new();
         let collectible_components = EntityMap::new();
-
+        let sign_components = EntityMap::new();
         // let entities = position_components
         //     .keys()
         //     .collect::<Vec<component::Entity>>();
@@ -217,6 +239,7 @@ impl<'a> State<'a> {
             physics_components,
             parallax_components,
             collectible_components,
+            sign_components,
             input_handler,
             render_system,
             physics_system,
@@ -269,6 +292,7 @@ impl<'a> State<'a> {
                 Some(metadata_component),
                 Some(parallax_component),
                 None,
+                None,
             )
         };
 
@@ -309,6 +333,7 @@ impl<'a> State<'a> {
                 None,
                 Some(metadata_component),
                 Some(parallax_component),
+                None,
                 None,
             )
         };
@@ -351,6 +376,7 @@ impl<'a> State<'a> {
                 Some(metadata_component),
                 Some(parallax_component),
                 None,
+                None,
             )
         };
 
@@ -392,6 +418,7 @@ impl<'a> State<'a> {
                 Some(metadata_component),
                 Some(parallax_component),
                 None,
+                None,
             )
         };
 
@@ -423,6 +450,7 @@ impl<'a> State<'a> {
                     Some(collider_box_component),
                     None,
                     Some(metadata_component),
+                    None,
                     None,
                     None,
                 )
@@ -493,6 +521,7 @@ impl<'a> State<'a> {
                 Some(metadata_component),
                 None,
                 None,
+                None,
             )
         };
 
@@ -529,6 +558,7 @@ impl<'a> State<'a> {
                 None,
                 Some(light_component),
                 Some(metadata_component),
+                None,
                 None,
                 None,
             )
@@ -611,12 +641,52 @@ impl<'a> State<'a> {
                 Some(metadata_component),
                 None,
                 None,
+                None,
+            )
+        };
+
+        let signpost = {
+            let position_component = component::PositionComponent {
+                position: cgmath::Vector2::new(232., 113.),
+                scale: cgmath::Vector2::new(32., 32.),
+            };
+
+            let texture_index = 6; // scroll
+
+            let vertex_array_component = component::VertexArrayComponent::textured_quad(
+                texture_index,
+                component::VertexArrayComponent::OBJECT_Z,
+            );
+
+            let metadata_component = component::MetadataComponent::new(false, false);
+
+            let sign_component = component::SignComponent {
+                in_range: false,
+                bounding_box: physics::BoundingBox {
+                    bottom_left: position_component.position - position_component.scale / 2.0,
+                    top_right: position_component.position + position_component.scale / 2.0,
+                },
+                popup_text: &SIGNPOST,
+            };
+
+            self.add_entity(
+                Some(position_component),
+                Some(vertex_array_component),
+                None,
+                None,
+                None,
+                None,
+                None,
+                Some(metadata_component),
+                None,
+                None,
+                Some(sign_component),
             )
         };
 
         let scroll = {
             let position_component = component::PositionComponent {
-                position: cgmath::Vector2::new(232., 132.),
+                position: cgmath::Vector2::new(332., 132.),
                 scale: cgmath::Vector2::new(16., 16.),
             };
 
@@ -636,6 +706,7 @@ impl<'a> State<'a> {
                     top_right: position_component.position + position_component.scale / 2.0,
                 },
                 is_collected: false,
+                popup_text: &FIRST_SCROLL,
             };
 
             self.add_entity(
@@ -649,6 +720,7 @@ impl<'a> State<'a> {
                 Some(metadata_component),
                 None,
                 Some(collectible_component),
+                None,
             )
         };
 
@@ -752,6 +824,7 @@ impl<'a> State<'a> {
         metadata_component: Option<component::MetadataComponent>,
         parallax_component: Option<component::ParallaxComponent>,
         collectible_component: Option<component::CollectibleComponent>,
+        sign_component: Option<component::SignComponent>,
     ) -> component::Entity {
         let entity = self.position_components.insert(position_component);
         self.vertex_array_components.insert(vertex_array_component);
@@ -777,6 +850,8 @@ impl<'a> State<'a> {
         self.parallax_components.insert(parallax_component);
 
         self.collectible_components.insert(collectible_component);
+
+        self.sign_components.insert(sign_component);
 
         entity
     }
@@ -804,6 +879,7 @@ impl<'a> State<'a> {
         self.metadata_components.remove(entity);
         self.physics_components.remove(entity);
         self.collectible_components.remove(entity);
+        self.sign_components.remove(entity);
         // self.entities.
     }
 
@@ -838,19 +914,23 @@ impl<'a> State<'a> {
             .collectible_components
             .iter()
             .filter_map(|(e, collectible_component)| match collectible_component {
-                Some(collectible_component) if collectible_component.is_collected => Some(e),
+                Some(collectible_component) if collectible_component.is_collected => {
+                    Some((e, collectible_component.popup_text))
+                }
                 _ => None,
             })
             .collect();
 
         self.mira_game_state.notes_collected += entities_to_remove.len() as u32;
 
-        entities_to_remove.iter().for_each(|entity| {
+        entities_to_remove.iter().for_each(|(entity, _)| {
             self.remove_entity(*entity);
         });
 
         if entities_to_remove.len() > 0 {
             self.game_mode = game::GameMode::POPUP;
+            self.gui_info.popup_text = entities_to_remove.get(0).unwrap().1;
+            self.gui_info.popup_type = gui::PopupType::SCROLL;
         }
         self.gui_info.notes_collected = self.mira_game_state.notes_collected;
     }

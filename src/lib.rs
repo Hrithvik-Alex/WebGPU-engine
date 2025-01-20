@@ -122,6 +122,7 @@ impl<'a> ApplicationHandler for App<'a> {
                     &mut state.metadata_components,
                     &mut state.physics_components,
                     &mut state.collectible_components,
+                    &mut state.sign_components,
                     current_time,
                     &state.game_mode,
                 );
@@ -220,7 +221,9 @@ impl<'a> ApplicationHandler for App<'a> {
                         &mut state.character_state_components,
                         &mut state.vertex_array_components,
                         &mut state.metadata_components,
+                        &mut state.sign_components,
                         &mut state.game_mode,
+                        &mut state.gui_info,
                     ),
 
                     _ => {}

@@ -23,6 +23,9 @@ var t_bg3: texture_2d<f32>;
 @group(1) @binding(7)
 var t_bg4: texture_2d<f32>;
 
+@group(1) @binding(8)
+var t_signpost: texture_2d<f32>;
+
 struct TextureInfo {
     color: vec4<f32>,
     normal: vec4<f32>,
@@ -73,6 +76,14 @@ fn get_texture_color(extra_info: u32, tex_coords: vec2<f32>) -> TextureInfo {
 
         case 5u: {
             color = textureSample(t_bg4, pixel_sampler, tex_coords);
+            // color = vec4(0.1,0.1,0.1,1);
+            // normal = vec4(0.,0,1,0);
+            // has_normal = true;
+ 
+        }
+
+        case 6u: {
+            color = textureSample(t_signpost, pixel_sampler, tex_coords);
             // color = vec4(0.1,0.1,0.1,1);
             // normal = vec4(0.,0,1,0);
             // has_normal = true;

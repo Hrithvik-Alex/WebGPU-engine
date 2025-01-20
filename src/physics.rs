@@ -112,6 +112,7 @@ impl PhysicsSystem {
         metadata_components: &mut EntityMap<component::MetadataComponent>,
         physics_components: &mut EntityMap<PhysicsComponent>,
         collectible_components: &mut EntityMap<component::CollectibleComponent>,
+        sign_components: &mut EntityMap<component::SignComponent>,
         current_time: Duration,
         game_mode: &game::GameMode,
     ) {
@@ -189,47 +190,56 @@ impl PhysicsSystem {
 
                 let mut is_grounded = false;
                 // TODO: implement better collision detection, this is O(N^2) lol
-                let collision_detected = collider_box_components
-                    .iter()
-                    .zip(collectible_components.iter_mut())
-                    .fold(
-                        Vector2::zero(),
-                        |mut collision_dir, ((e2, box2), (_, collectible))| {
-                            if (e1 != e2) {
-                                box2.as_ref().map(|box2| {
-                                    let (direction, scale) = Self::get_collision_delta(
-                                        &new_collision_box.bounding_box,
-                                        &box2.bounding_box,
-                                    );
-                                    if (Self::is_colliding(
-                                        &new_collision_box.bounding_box,
-                                        &box2.bounding_box,
-                                    )) {
-                                        collision_dir += direction * scale;
-                                    }
+                let collision_detected = utils::zip3_entities_1immut(
+                    collectible_components,
+                    sign_components,
+                    collider_box_components,
+                )
+                .fold(
+                    Vector2::zero(),
+                    |mut collision_dir, (e2, collectible, sign_component, box2)| {
+                        if (e1 != e2) {
+                            box2.as_ref().map(|box2| {
+                                let (direction, scale) = Self::get_collision_delta(
+                                    &new_collision_box.bounding_box,
+                                    &box2.bounding_box,
+                                );
+                                if (Self::is_colliding(
+                                    &new_collision_box.bounding_box,
+                                    &box2.bounding_box,
+                                )) {
+                                    collision_dir += direction * scale;
+                                }
 
-                                    if (Self::is_touching(
-                                        &new_collision_box.bounding_box,
-                                        &box2.bounding_box,
-                                    )) {
-                                        if direction == (Vector2::unit_y() * -1.) {
-                                            is_grounded = true;
-                                        }
+                                if (Self::is_touching(
+                                    &new_collision_box.bounding_box,
+                                    &box2.bounding_box,
+                                )) {
+                                    if direction == (Vector2::unit_y() * -1.) {
+                                        is_grounded = true;
                                     }
-                                });
+                                }
+                            });
 
-                                collectible.as_mut().map(|collectible| {
-                                    if Self::is_colliding(
-                                        &new_collision_box.bounding_box,
-                                        &collectible.bounding_box,
-                                    ) {
-                                        collectible.is_collected = true;
-                                    }
-                                });
-                            }
-                            collision_dir
-                        },
-                    );
+                            collectible.as_mut().map(|collectible| {
+                                if Self::is_colliding(
+                                    &new_collision_box.bounding_box,
+                                    &collectible.bounding_box,
+                                ) {
+                                    collectible.is_collected = true;
+                                }
+                            });
+
+                            sign_component.as_mut().map(|sign_component| {
+                                sign_component.in_range = Self::is_colliding(
+                                    &new_collision_box.bounding_box,
+                                    &sign_component.bounding_box,
+                                );
+                            });
+                        }
+                        collision_dir
+                    },
+                );
 
                 if (is_grounded) {
                     if physics_component.last_grounded_time.is_some() {

@@ -1,6 +1,6 @@
 use crate::{
     component::{self, CharacterStateComponent, PositionComponent},
-    game, utils,
+    game, gui, utils,
 };
 
 use std::time::Duration;
@@ -37,7 +37,9 @@ impl InputHandler {
         character_state_components: &mut component::EntityMap<component::CharacterStateComponent>,
         vertex_array_components: &mut component::EntityMap<component::VertexArrayComponent>,
         metadata_components: &mut component::EntityMap<component::MetadataComponent>,
+        sign_components: &mut component::EntityMap<component::SignComponent>,
         game_mode: &mut game::GameMode,
+        gui_info: &mut gui::GuiInfo,
     ) {
         let mut update_state = |state: component::CharacterState, is_flipped: Option<bool>| {
             utils::zip4_entities_mut(
@@ -112,6 +114,17 @@ impl InputHandler {
                         | PhysicalKey::Code(KeyCode::ArrowRight) => {
                             self.right_pressed = true;
                             update_state(component::CharacterState::MOVE, Some(false));
+                        }
+                        PhysicalKey::Code(KeyCode::KeyX) => {
+                            sign_components.iter_mut().for_each(|(_, sign)| {
+                                sign.as_mut().map(|sign| {
+                                    if sign.in_range {
+                                        gui_info.popup_text = sign.popup_text;
+                                        gui_info.popup_type = gui::PopupType::WOOD;
+                                        *game_mode = game::GameMode::POPUP;
+                                    }
+                                });
+                            });
                         }
                         _ => (),
                     },

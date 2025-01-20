@@ -6,7 +6,7 @@ use cgmath::num_traits::{clamp, clamp_max, clamp_min};
 use egui::epaint::Shadow;
 use egui::{
     frame, include_image, Align2, Color32, ColorImage, Context, FontId, Frame, Pos2, Rect,
-    RichText, Stroke, TextureHandle, TextureOptions, Ui, Vec2, Visuals,
+    RichText, Rounding, Stroke, TextureHandle, TextureOptions, Ui, Vec2, Visuals,
 };
 use egui_wgpu::Renderer;
 use egui_wgpu::ScreenDescriptor;
@@ -20,9 +20,17 @@ use log::debug;
 
 use crate::{context, game};
 
+#[derive(Clone, Copy)]
+pub enum PopupType {
+    SCROLL,
+    WOOD,
+}
+
 pub struct GuiInfo {
     pub fps: u32,
     pub notes_collected: u32,
+    pub popup_text: &'static str,
+    pub popup_type: PopupType,
 }
 
 pub struct Gui {
@@ -31,6 +39,7 @@ pub struct Gui {
     renderer: Renderer,
     scroll_image: TextureHandle,
     scroll_background_image: TextureHandle,
+    wood_background_image: TextureHandle,
     scroll_offset: egui::Vec2,
     scroll_content_size: Option<egui::Vec2>,
 }
@@ -89,6 +98,17 @@ impl Gui {
             egui_context.load_texture("scroll_background", image, TextureOptions::default())
         };
 
+        let wood_background_image = {
+            let rgba = image::load_from_memory(
+                &std::fs::read("./assets/wood_bg.png").expect("failed to load scroll"),
+            )
+            .unwrap()
+            .to_rgba8()
+            .to_vec();
+            let image = ColorImage::from_rgba_unmultiplied([879, 879], &rgba);
+            egui_context.load_texture("wood_background", image, TextureOptions::default())
+        };
+
         let mut fonts = egui::FontDefinitions::default();
         fonts.font_data.insert(
             "Geo-Regular".to_owned(),
@@ -108,6 +128,7 @@ impl Gui {
             renderer: egui_renderer,
             scroll_image,
             scroll_background_image,
+            wood_background_image,
             scroll_offset: egui::Vec2::zeroed(),
             scroll_content_size: None,
         }
@@ -169,32 +190,6 @@ impl Gui {
 
                     debug!("{:?} {:?}", scroll_top_margin, scroll_bot_margin);
 
-                    let scroll_background = egui::Image::new((
-                        self.scroll_background_image.id(),
-                        self.scroll_background_image.size_vec2(),
-                    ))
-                    .uv(self.scroll_content_size.map_or_else(
-                        || Rect {
-                            min: Pos2 { x: 0.0, y: 0.0 },
-                            max: Pos2 { x: 1.0, y: 1.0 },
-                        },
-                        |content_size| Rect {
-                            min: Pos2 {
-                                x: 0.0,
-                                y: self.scroll_offset.y / content_size.y,
-                            },
-                            max: Pos2 {
-                                x: 1.0,
-                                y: clamp_max(
-                                    (self.scroll_offset.y + rect.y
-                                        - scroll_top_margin
-                                        - scroll_bot_margin)
-                                        / content_size.y,
-                                    1.,
-                                ),
-                            },
-                        },
-                    ));
                     // .fit_to_exact_size(popup_size);
                     // .maintain_aspect_ratio(true);
                     // let original_visuals = Visuals::default();
@@ -218,18 +213,71 @@ impl Gui {
                         .show(ctx, |ui| {
                             ui.visuals_mut().override_text_color = Some(Color32::BLACK);
 
-                            scroll_background.paint_at(
-                                ui,
-                                egui::Rect {
-                                    min: rect - popup_size / 2.,
-                                    max: rect + popup_size / 2.,
-                                },
-                            );
+                            match info.popup_type {
+                                PopupType::SCROLL => {
+                                    let scroll_background = egui::Image::new((
+                                        self.scroll_background_image.id(),
+                                        self.scroll_background_image.size_vec2(),
+                                    ))
+                                    .uv(self.scroll_content_size.map_or_else(
+                                        || Rect {
+                                            min: Pos2 { x: 0.0, y: 0.0 },
+                                            max: Pos2 { x: 1.0, y: 1.0 },
+                                        },
+                                        |content_size| Rect {
+                                            min: Pos2 {
+                                                x: 0.0,
+                                                y: self.scroll_offset.y / content_size.y,
+                                            },
+                                            max: Pos2 {
+                                                x: 1.0,
+                                                y: clamp_max(
+                                                    (self.scroll_offset.y + rect.y
+                                                        - scroll_top_margin
+                                                        - scroll_bot_margin)
+                                                        / content_size.y,
+                                                    1.,
+                                                ),
+                                            },
+                                        },
+                                    ));
+
+                                    scroll_background.paint_at(
+                                        ui,
+                                        egui::Rect {
+                                            min: rect - popup_size / 2.,
+                                            max: rect + popup_size / 2.,
+                                        },
+                                    )
+                                }
+                                PopupType::WOOD => {
+                                    let wood_background = egui::Image::new((
+                                        self.wood_background_image.id(),
+                                        self.wood_background_image.size_vec2(),
+                                    ));
+                                    wood_background.paint_at(
+                                        ui,
+                                        egui::Rect {
+                                            min: rect - popup_size / 2.,
+                                            max: rect + popup_size / 2.,
+                                        },
+                                    );
+
+                                    ui.painter().rect_filled(
+                                        egui::Rect {
+                                            min: rect - popup_size / 2. * 0.9,
+                                            max: rect + popup_size / 2. * 0.9,
+                                        },
+                                        Rounding::ZERO,
+                                        Color32::from_rgb(255, 253, 208),
+                                    );
+                                }
+                            };
 
                             egui::Frame::group(ui.style())
                                 .inner_margin(egui::Margin {
-                                    left: 25.,
-                                    right: 25.,
+                                    left: rect.x * 0.06,
+                                    right: rect.x * 0.06,
                                     top: scroll_top_margin,
                                     bottom: scroll_bot_margin,
                                 })
@@ -240,20 +288,16 @@ impl Gui {
                                             egui::scroll_area::ScrollBarVisibility::AlwaysHidden,
                                         );
 
-                                    let output =
-                                        scroll_area.show(ui, |ui| {
-                                            ui.label(
-                                                RichText::new(
-                                                    read_to_string("./src/text/a.txt").unwrap(),
-                                                )
-                                                .font(FontId {
-                                                    size: 18.0,
-                                                    family: egui::epaint::FontFamily::Name(
-                                                        "Geo-Regular".into(),
-                                                    ),
-                                                }),
-                                            )
-                                        });
+                                    let output = scroll_area.show(ui, |ui| {
+                                        ui.vertical_centered(|ui| {
+                                            ui.label(RichText::new(info.popup_text).font(FontId {
+                                                size: 18.0,
+                                                family: egui::epaint::FontFamily::Name(
+                                                    "Geo-Regular".into(),
+                                                ),
+                                            }))
+                                        })
+                                    });
 
                                     self.scroll_offset = output.state.offset;
                                     self.scroll_content_size = Some(output.content_size);

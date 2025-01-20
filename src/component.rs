@@ -246,4 +246,11 @@ impl ParallaxComponent {}
 pub struct CollectibleComponent {
     pub is_collected: bool,
     pub bounding_box: physics::BoundingBox,
+    pub popup_text: &'static str,
+}
+
+pub struct SignComponent {
+    pub in_range: bool,
+    pub bounding_box: physics::BoundingBox,
+    pub popup_text: &'static str,
 }
