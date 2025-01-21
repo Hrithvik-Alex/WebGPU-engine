@@ -25,10 +25,18 @@ use wgpu::naga::compact;
 use winit::window::Window;
 
 lazy_static! {
-    static ref SIGNPOST: String =
+    static ref INTRO_SIGNPOST: String =
         fs::read_to_string("./src/text/signpost.txt").expect("Failed to read the file");
     static ref FIRST_SCROLL: String =
-        fs::read_to_string("./src/text/a.txt").expect("Failed to read the file");
+        fs::read_to_string("./src/text/first.txt").expect("Failed to read the file");
+    static ref SECOND_SCROLL: String =
+        fs::read_to_string("./src/text/second.txt").expect("Failed to read the file");
+    static ref THIRD_SCROLL: String =
+        fs::read_to_string("./src/text/third.txt").expect("Failed to read the file");
+    static ref FOURTH_SCROLL: String =
+        fs::read_to_string("./src/text/fourth.txt").expect("Failed to read the file");
+    static ref FIFTH_SCROLL: String =
+        fs::read_to_string("./src/text/fifth.txt").expect("Failed to read the file");
 }
 pub struct State<'a> {
     pub context: context::Context<'a>,
@@ -52,6 +60,7 @@ pub struct State<'a> {
     pub parallax_components: component::EntityMap<component::ParallaxComponent>,
     pub collectible_components: component::EntityMap<component::CollectibleComponent>,
     pub sign_components: component::EntityMap<component::SignComponent>,
+    pub moving_platform_components: component::EntityMap<component::MovingPlatformComponent>,
     // entities: Vec<component::Entity>,
 
     // systems
@@ -203,6 +212,7 @@ impl<'a> State<'a> {
         let parallax_components = EntityMap::new();
         let collectible_components = EntityMap::new();
         let sign_components = EntityMap::new();
+        let moving_platform_components = EntityMap::new();
         // let entities = position_components
         //     .keys()
         //     .collect::<Vec<component::Entity>>();
@@ -239,6 +249,7 @@ impl<'a> State<'a> {
             physics_components,
             parallax_components,
             collectible_components,
+            moving_platform_components,
             sign_components,
             input_handler,
             render_system,
@@ -293,6 +304,7 @@ impl<'a> State<'a> {
                 Some(parallax_component),
                 None,
                 None,
+                None,
             )
         };
 
@@ -333,6 +345,7 @@ impl<'a> State<'a> {
                 None,
                 Some(metadata_component),
                 Some(parallax_component),
+                None,
                 None,
                 None,
             )
@@ -377,6 +390,7 @@ impl<'a> State<'a> {
                 Some(parallax_component),
                 None,
                 None,
+                None,
             )
         };
 
@@ -419,11 +433,12 @@ impl<'a> State<'a> {
                 Some(parallax_component),
                 None,
                 None,
+                None,
             )
         };
 
         let tiles = {
-            let mut create_tile = |position, scale| {
+            let mut create_tile = |position, scale, moving_platform_component| {
                 let position_component = component::PositionComponent { position, scale };
 
                 let vertex_array_component: component::VertexArrayComponent =
@@ -453,12 +468,14 @@ impl<'a> State<'a> {
                     None,
                     None,
                     None,
+                    moving_platform_component,
                 )
             };
 
             let main_ground = create_tile(
                 cgmath::Vector2::new(uniform::WorldUniform::WORLD_SCREEN_WIDTH as f32 / 2.0, 50.),
                 cgmath::Vector2::new(uniform::WorldUniform::WORLD_SCREEN_WIDTH as f32, 100.),
+                None,
             );
 
             let platform_scale = cgmath::Vector2::new(100., 20.);
@@ -466,6 +483,7 @@ impl<'a> State<'a> {
             let platform_1 = create_tile(
                 cgmath::Vector2::new(uniform::WorldUniform::WORLD_SCREEN_WIDTH as f32 + 60., 150.),
                 platform_scale,
+                None,
             );
 
             let platform_2 = create_tile(
@@ -474,6 +492,7 @@ impl<'a> State<'a> {
                     200.,
                 ),
                 platform_scale,
+                None,
             );
 
             let platform_3 = create_tile(
@@ -482,6 +501,62 @@ impl<'a> State<'a> {
                     250.,
                 ),
                 platform_scale,
+                None,
+            );
+
+            let second_scroll_platform = create_tile(
+                cgmath::Vector2::new(
+                    uniform::WorldUniform::WORLD_SCREEN_WIDTH as f32 + 600.,
+                    220.,
+                ),
+                platform_scale * 5.,
+                None,
+            );
+
+            let platform_4 = create_tile(
+                cgmath::Vector2::new(uniform::WorldUniform::WORLD_SCREEN_WIDTH as f32 + 50., 300.),
+                platform_scale,
+                None,
+            );
+
+            let platform_5 = create_tile(
+                cgmath::Vector2::new(uniform::WorldUniform::WORLD_SCREEN_WIDTH as f32 - 80., 375.),
+                platform_scale,
+                None,
+            );
+
+            let platform_6 = create_tile(
+                cgmath::Vector2::new(
+                    uniform::WorldUniform::WORLD_SCREEN_WIDTH as f32 - 210.,
+                    450.,
+                ),
+                platform_scale,
+                None,
+            );
+
+            let moving_platform_pos = cgmath::Vector2::new(
+                uniform::WorldUniform::WORLD_SCREEN_WIDTH as f32 + 500.,
+                450.,
+            );
+            let moving_platform = create_tile(
+                moving_platform_pos,
+                platform_scale,
+                Some(component::MovingPlatformComponent {
+                    amplitude: 550.,
+                    period_secs: 8.,
+                    original_position: moving_platform_pos,
+                    horizontal: true,
+                    prev_change: 0.,
+                }),
+            );
+
+            let second_scroll_platform = create_tile(
+                cgmath::Vector2::new(
+                    uniform::WorldUniform::WORLD_SCREEN_WIDTH as f32 + 1350.,
+                    450.,
+                ),
+                platform_scale * 3.,
+                None,
             );
         };
 
@@ -522,6 +597,7 @@ impl<'a> State<'a> {
                 None,
                 None,
                 None,
+                None,
             )
         };
 
@@ -558,6 +634,7 @@ impl<'a> State<'a> {
                 None,
                 Some(light_component),
                 Some(metadata_component),
+                None,
                 None,
                 None,
                 None,
@@ -642,6 +719,7 @@ impl<'a> State<'a> {
                 None,
                 None,
                 None,
+                None,
             )
         };
 
@@ -666,7 +744,7 @@ impl<'a> State<'a> {
                     bottom_left: position_component.position - position_component.scale / 2.0,
                     top_right: position_component.position + position_component.scale / 2.0,
                 },
-                popup_text: &SIGNPOST,
+                popup_text: &INTRO_SIGNPOST,
             };
 
             self.add_entity(
@@ -681,47 +759,77 @@ impl<'a> State<'a> {
                 None,
                 None,
                 Some(sign_component),
+                None,
             )
         };
 
-        let scroll = {
-            let position_component = component::PositionComponent {
-                position: cgmath::Vector2::new(332., 132.),
-                scale: cgmath::Vector2::new(16., 16.),
+        let scrolls = {
+            let mut create_scroll = |position_component: component::PositionComponent,
+                                     text: &'static str| {
+                let texture_index = 1; // scroll
+
+                let mut vertex_array_component = component::VertexArrayComponent::textured_quad(
+                    texture_index,
+                    component::VertexArrayComponent::OBJECT_Z,
+                );
+                vertex_array_component.shader_type = component::ShaderType::COLLECTIBLE;
+
+                let metadata_component = component::MetadataComponent::new(false, false);
+
+                let collectible_component = component::CollectibleComponent {
+                    bounding_box: physics::BoundingBox {
+                        bottom_left: position_component.position - position_component.scale / 2.0,
+                        top_right: position_component.position + position_component.scale / 2.0,
+                    },
+                    is_collected: false,
+                    popup_text: &text,
+                };
+
+                self.add_entity(
+                    Some(position_component),
+                    Some(vertex_array_component),
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    Some(metadata_component),
+                    None,
+                    Some(collectible_component),
+                    None,
+                    None,
+                )
             };
 
-            let texture_index = 1; // scroll
-
-            let mut vertex_array_component = component::VertexArrayComponent::textured_quad(
-                texture_index,
-                component::VertexArrayComponent::OBJECT_Z,
-            );
-            vertex_array_component.shader_type = component::ShaderType::COLLECTIBLE;
-
-            let metadata_component = component::MetadataComponent::new(false, false);
-
-            let collectible_component = component::CollectibleComponent {
-                bounding_box: physics::BoundingBox {
-                    bottom_left: position_component.position - position_component.scale / 2.0,
-                    top_right: position_component.position + position_component.scale / 2.0,
+            let scroll_1 = create_scroll(
+                component::PositionComponent {
+                    position: cgmath::Vector2::new(332., 132.),
+                    scale: cgmath::Vector2::new(16., 16.),
                 },
-                is_collected: false,
-                popup_text: &FIRST_SCROLL,
-            };
+                &FIRST_SCROLL,
+            );
 
-            self.add_entity(
-                Some(position_component),
-                Some(vertex_array_component),
-                None,
-                None,
-                None,
-                None,
-                None,
-                Some(metadata_component),
-                None,
-                Some(collectible_component),
-                None,
-            )
+            let scroll_2 = create_scroll(
+                component::PositionComponent {
+                    position: cgmath::Vector2::new(
+                        uniform::WorldUniform::WORLD_SCREEN_WIDTH as f32 + 700.,
+                        302.,
+                    ),
+                    scale: cgmath::Vector2::new(16., 16.),
+                },
+                &SECOND_SCROLL,
+            );
+
+            let scroll_3 = create_scroll(
+                component::PositionComponent {
+                    position: cgmath::Vector2::new(
+                        uniform::WorldUniform::WORLD_SCREEN_WIDTH as f32 + 1450.,
+                        512.,
+                    ),
+                    scale: cgmath::Vector2::new(16., 16.),
+                },
+                &THIRD_SCROLL,
+            );
         };
 
         // let minotaur = {
@@ -796,6 +904,7 @@ impl<'a> State<'a> {
         //         None,
         //         Some(metadata_component),
         //         None,
+        // None,
         //     None)
         // };
 
@@ -825,6 +934,7 @@ impl<'a> State<'a> {
         parallax_component: Option<component::ParallaxComponent>,
         collectible_component: Option<component::CollectibleComponent>,
         sign_component: Option<component::SignComponent>,
+        moving_platform_component: Option<component::MovingPlatformComponent>,
     ) -> component::Entity {
         let entity = self.position_components.insert(position_component);
         self.vertex_array_components.insert(vertex_array_component);
@@ -853,6 +963,9 @@ impl<'a> State<'a> {
 
         self.sign_components.insert(sign_component);
 
+        self.moving_platform_components
+            .insert(moving_platform_component);
+
         entity
     }
 
@@ -880,6 +993,7 @@ impl<'a> State<'a> {
         self.physics_components.remove(entity);
         self.collectible_components.remove(entity);
         self.sign_components.remove(entity);
+        self.moving_platform_components.remove(entity);
         // self.entities.
     }
 

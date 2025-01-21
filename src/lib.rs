@@ -123,6 +123,7 @@ impl<'a> ApplicationHandler for App<'a> {
                     &mut state.physics_components,
                     &mut state.collectible_components,
                     &mut state.sign_components,
+                    &mut state.moving_platform_components,
                     current_time,
                     &state.game_mode,
                 );

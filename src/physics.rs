@@ -113,6 +113,7 @@ impl PhysicsSystem {
         physics_components: &mut EntityMap<PhysicsComponent>,
         collectible_components: &mut EntityMap<component::CollectibleComponent>,
         sign_components: &mut EntityMap<component::SignComponent>,
+        moving_platform_components: &mut EntityMap<component::MovingPlatformComponent>,
         current_time: Duration,
         game_mode: &game::GameMode,
     ) {
@@ -122,6 +123,35 @@ impl PhysicsSystem {
 
         let tick_secs = self.tick_duration.as_secs_f32();
         // let position_delta = cgmath::Vector2::new(x, y) * Self::MOVEMENT_SPEED * tick_secs;
+
+        utils::zip3_entities_mut(
+            moving_platform_components,
+            position_components,
+            collider_box_components,
+        )
+        .for_each(|(_, moving_platform, position_component, collider_box)| {
+            if let (Some(moving_platform), Some(pos)) = (moving_platform, position_component) {
+                let change = (current_time.as_secs_f32() * 2.0 * std::f32::consts::PI
+                    / moving_platform.period_secs)
+                    .sin()
+                    * moving_platform.amplitude;
+
+                if moving_platform.horizontal {
+                    moving_platform.prev_change =
+                        moving_platform.original_position.x + change - pos.position.x;
+                    pos.position.x = moving_platform.original_position.x + change;
+                } else {
+                    moving_platform.prev_change =
+                        moving_platform.original_position.x + change - pos.position.y;
+                    pos.position.y = moving_platform.original_position.y + change;
+                }
+
+                if let Some(collider_box) = collider_box {
+                    collider_box.bounding_box.bottom_left = pos.position - pos.scale / 2.0;
+                    collider_box.bounding_box.top_right = pos.position + pos.scale / 2.0;
+                }
+            }
+        });
 
         let collider_deltas = utils::zip4_entities_1immut(
             position_components,
@@ -174,7 +204,9 @@ impl PhysicsSystem {
                 let delta = physics_component.velocity * tick_secs;
                 let mut delta_add = delta;
 
-                if (*physics_component == PhysicsComponent::new()) {
+                if (*physics_component == PhysicsComponent::new()
+                    && !metadata_component.is_controllable())
+                {
                     return cgmath::Vector2::zero();
                 }
 
@@ -188,16 +220,20 @@ impl PhysicsSystem {
                     },
                 };
 
-                let mut is_grounded = false;
+                let mut is_grounded: bool = false;
+                let mut moving_platform_to_add = 0.;
+                let mut moving_platform_is_horizontal = true;
                 // TODO: implement better collision detection, this is O(N^2) lol
-                let collision_detected = utils::zip3_entities_1immut(
+                let collision_detected = utils::zip4_entities_1immut(
                     collectible_components,
                     sign_components,
+                    moving_platform_components,
                     collider_box_components,
                 )
                 .fold(
                     Vector2::zero(),
-                    |mut collision_dir, (e2, collectible, sign_component, box2)| {
+                    |mut collision_dir,
+                     (e2, collectible, sign_component, moving_platform, box2)| {
                         if (e1 != e2) {
                             box2.as_ref().map(|box2| {
                                 let (direction, scale) = Self::get_collision_delta(
@@ -217,6 +253,12 @@ impl PhysicsSystem {
                                 )) {
                                     if direction == (Vector2::unit_y() * -1.) {
                                         is_grounded = true;
+
+                                        if let Some(moving_platform) = moving_platform {
+                                            moving_platform_to_add = moving_platform.prev_change;
+                                            moving_platform_is_horizontal =
+                                                moving_platform.horizontal;
+                                        }
                                     }
                                 }
                             });
@@ -285,7 +327,15 @@ impl PhysicsSystem {
                         delta_add.x -= collision_detected.x;
                     }
                 }
+
+                if moving_platform_is_horizontal {
+                    delta_add.x += moving_platform_to_add;
+                } else {
+                    delta_add.y += moving_platform_to_add;
+                }
+
                 position_component.position += delta_add;
+
                 delta_add
             },
         )

@@ -1,10 +1,10 @@
-use std::f64;
+use std::{f64, time::Duration};
 
 use cgmath::ElementWise;
 use log::debug;
 use slotmap::DenseSlotMap;
 
-use crate::physics;
+use crate::{physics, utils::zip3_entities_mut};
 
 pub type Entity = slotmap::DefaultKey;
 pub type EntityMap<T> = DenseSlotMap<Entity, Option<T>>;
@@ -254,3 +254,44 @@ pub struct SignComponent {
     pub bounding_box: physics::BoundingBox,
     pub popup_text: &'static str,
 }
+
+#[derive(Debug)]
+pub struct MovingPlatformComponent {
+    pub amplitude: f32,
+    pub period_secs: f32,
+    pub original_position: cgmath::Vector2<f32>,
+    pub horizontal: bool,
+    pub prev_change: f32,
+}
+
+// pub fn update_platforms(
+//     moving_platform_components: &mut EntityMap<MovingPlatformComponent>,
+//     position_components: &mut EntityMap<PositionComponent>,
+//     collider_box_components: &mut EntityMap<physics::ColliderBoxComponent>,
+//     time_elapsed: Duration,
+// ) {
+//     zip3_entities_mut(
+//         moving_platform_components,
+//         position_components,
+//         collider_box_components,
+//     )
+//     .for_each(|(_, moving_platform, position_component, collider_box)| {
+//         if let (Some(moving_platform), Some(pos)) = (moving_platform, position_component) {
+//             let change = (time_elapsed.as_secs_f32() * 2.0 * std::f32::consts::PI
+//                 / moving_platform.period_secs)
+//                 .sin()
+//                 * moving_platform.amplitude;
+
+//             if moving_platform.horizontal {
+//                 pos.position.x = moving_platform.original_position.x + change;
+//             } else {
+//                 pos.position.y = moving_platform.original_position.y + change;
+//             }
+
+//             if let Some(collider_box) = collider_box {
+//                 collider_box.bounding_box.bottom_left = pos.position - pos.scale / 2.0;
+//                 collider_box.bounding_box.top_right = pos.position + pos.scale / 2.0;
+//             }
+//         }
+//     });
+// }
