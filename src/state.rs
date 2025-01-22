@@ -35,8 +35,6 @@ lazy_static! {
         fs::read_to_string("./src/text/third.txt").expect("Failed to read the file");
     static ref FOURTH_SCROLL: String =
         fs::read_to_string("./src/text/fourth.txt").expect("Failed to read the file");
-    static ref FIFTH_SCROLL: String =
-        fs::read_to_string("./src/text/fifth.txt").expect("Failed to read the file");
 }
 pub struct State<'a> {
     pub context: context::Context<'a>,
@@ -227,7 +225,7 @@ impl<'a> State<'a> {
 
         let physics_system = physics::PhysicsSystem::new(Self::FIXED_UPDATE_DURATION);
 
-        let mira_game = game::MiraGameState::new();
+        let mira_game = game::MiraGameState::new(cgmath::Vector2::new(82., 132.));
 
         Self {
             window,
@@ -288,7 +286,7 @@ impl<'a> State<'a> {
             let metadata_component = component::MetadataComponent::new(false, false);
 
             let parallax_component = component::ParallaxComponent {
-                move_speed: 30.,
+                move_speed: 10.,
                 layer,
             };
 
@@ -331,7 +329,7 @@ impl<'a> State<'a> {
             let metadata_component = component::MetadataComponent::new(false, false);
 
             let parallax_component = component::ParallaxComponent {
-                move_speed: 20.,
+                move_speed: 7.,
                 layer,
             };
 
@@ -374,7 +372,7 @@ impl<'a> State<'a> {
             let metadata_component = component::MetadataComponent::new(false, false);
 
             let parallax_component = component::ParallaxComponent {
-                move_speed: 10.,
+                move_speed: 4.,
                 layer,
             };
 
@@ -534,17 +532,17 @@ impl<'a> State<'a> {
                 None,
             );
 
-            let moving_platform_pos = cgmath::Vector2::new(
+            let moving_platform_h_pos = cgmath::Vector2::new(
                 uniform::WorldUniform::WORLD_SCREEN_WIDTH as f32 + 500.,
                 450.,
             );
-            let moving_platform = create_tile(
-                moving_platform_pos,
+            let moving_platform_h = create_tile(
+                moving_platform_h_pos,
                 platform_scale,
                 Some(component::MovingPlatformComponent {
                     amplitude: 550.,
                     period_secs: 8.,
-                    original_position: moving_platform_pos,
+                    original_position: moving_platform_h_pos,
                     horizontal: true,
                     prev_change: 0.,
                 }),
@@ -556,6 +554,32 @@ impl<'a> State<'a> {
                     450.,
                 ),
                 platform_scale * 3.,
+                None,
+            );
+
+            let moving_platform_v_pos = cgmath::Vector2::new(
+                uniform::WorldUniform::WORLD_SCREEN_WIDTH as f32 + 1600.,
+                250.,
+            );
+
+            let moving_platform_v = create_tile(
+                moving_platform_v_pos,
+                platform_scale,
+                Some(component::MovingPlatformComponent {
+                    amplitude: 200.,
+                    period_secs: 5.,
+                    original_position: moving_platform_v_pos,
+                    horizontal: false,
+                    prev_change: 0.,
+                }),
+            );
+
+            let third_scroll_platform = create_tile(
+                cgmath::Vector2::new(
+                    uniform::WorldUniform::WORLD_SCREEN_WIDTH as f32 + 2120.,
+                    50.,
+                ),
+                cgmath::Vector2::new(uniform::WorldUniform::WORLD_SCREEN_WIDTH as f32, 100.),
                 None,
             );
         };
@@ -644,7 +668,7 @@ impl<'a> State<'a> {
         // entity for player
         let character = {
             let position_component = component::PositionComponent {
-                position: cgmath::Vector2::new(82., 132.),
+                position: self.mira_game_state.mira_init_position,
                 scale: cgmath::Vector2::new(64., 64.),
             };
 
@@ -823,12 +847,23 @@ impl<'a> State<'a> {
             let scroll_3 = create_scroll(
                 component::PositionComponent {
                     position: cgmath::Vector2::new(
-                        uniform::WorldUniform::WORLD_SCREEN_WIDTH as f32 + 1450.,
+                        uniform::WorldUniform::WORLD_SCREEN_WIDTH as f32 + 1350.,
                         512.,
                     ),
                     scale: cgmath::Vector2::new(16., 16.),
                 },
                 &THIRD_SCROLL,
+            );
+
+            let scroll_4 = create_scroll(
+                component::PositionComponent {
+                    position: cgmath::Vector2::new(
+                        uniform::WorldUniform::WORLD_SCREEN_WIDTH as f32 + 2300.,
+                        130.,
+                    ),
+                    scale: cgmath::Vector2::new(16., 16.),
+                },
+                &FOURTH_SCROLL,
             );
         };
 
@@ -1024,6 +1059,11 @@ impl<'a> State<'a> {
     }
 
     pub fn update_mira_game_state(&mut self) {
+        self.mira_game_state.update(
+            &mut self.position_components,
+            &mut self.collider_box_components,
+            &mut self.metadata_components,
+        );
         let entities_to_remove: Vec<_> = self
             .collectible_components
             .iter()

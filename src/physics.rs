@@ -50,6 +50,7 @@ impl PhysicsComponent {
 
 pub struct PhysicsSystem {
     tick_duration: Duration,
+    ticks_elapsed: u64,
 }
 
 impl PhysicsSystem {
@@ -61,7 +62,10 @@ impl PhysicsSystem {
     const COYOTE_TIME: Duration = Duration::from_millis(300);
 
     pub fn new(tick_duration: Duration) -> Self {
-        Self { tick_duration }
+        Self {
+            tick_duration,
+            ticks_elapsed: 0,
+        }
     }
 
     fn is_colliding(a: &BoundingBox, b: &BoundingBox) -> bool {
@@ -105,7 +109,7 @@ impl PhysicsSystem {
     }
 
     pub fn update(
-        &self,
+        &mut self,
         input_handler: &InputHandler,
         position_components: &mut EntityMap<PositionComponent>,
         collider_box_components: &mut EntityMap<ColliderBoxComponent>,
@@ -122,6 +126,7 @@ impl PhysicsSystem {
         }
 
         let tick_secs = self.tick_duration.as_secs_f32();
+        self.ticks_elapsed += 1;
         // let position_delta = cgmath::Vector2::new(x, y) * Self::MOVEMENT_SPEED * tick_secs;
 
         utils::zip3_entities_mut(
@@ -131,7 +136,7 @@ impl PhysicsSystem {
         )
         .for_each(|(_, moving_platform, position_component, collider_box)| {
             if let (Some(moving_platform), Some(pos)) = (moving_platform, position_component) {
-                let change = (current_time.as_secs_f32() * 2.0 * std::f32::consts::PI
+                let change = (tick_secs * self.ticks_elapsed as f32 * 2.0 * std::f32::consts::PI
                     / moving_platform.period_secs)
                     .sin()
                     * moving_platform.amplitude;
@@ -142,7 +147,7 @@ impl PhysicsSystem {
                     pos.position.x = moving_platform.original_position.x + change;
                 } else {
                     moving_platform.prev_change =
-                        moving_platform.original_position.x + change - pos.position.y;
+                        moving_platform.original_position.y + change - pos.position.y;
                     pos.position.y = moving_platform.original_position.y + change;
                 }
 
@@ -331,7 +336,7 @@ impl PhysicsSystem {
                 if moving_platform_is_horizontal {
                     delta_add.x += moving_platform_to_add;
                 } else {
-                    delta_add.y += moving_platform_to_add;
+                    delta_add.y -= moving_platform_to_add;
                 }
 
                 position_component.position += delta_add;

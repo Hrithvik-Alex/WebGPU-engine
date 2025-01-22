@@ -439,6 +439,14 @@ impl CameraController {
             ));
 
             update_parallax(cgmath::Vector2::unit_x(), camera);
+        } else {
+            camera.update_position(Vector3::new(
+                original_position.x,
+                original_position.y,
+                camera.position().z,
+            ));
+
+            update_parallax(cgmath::Vector2::unit_x(), camera);
         }
 
         if screen_position.y < camera.height as f32 / 2.0 {
