@@ -106,14 +106,14 @@ impl InputHandler {
                         PhysicalKey::Code(KeyCode::KeyA)
                         | PhysicalKey::Code(KeyCode::ArrowLeft) => {
                             self.left_pressed = true;
-                            update_state(component::CharacterState::MOVE, Some(true));
+                            update_state(component::CharacterState::MOVE, Some(false));
                         }
                         PhysicalKey::Code(KeyCode::KeyS)
                         | PhysicalKey::Code(KeyCode::ArrowDown) => self.down_pressed = true,
                         PhysicalKey::Code(KeyCode::KeyD)
                         | PhysicalKey::Code(KeyCode::ArrowRight) => {
                             self.right_pressed = true;
-                            update_state(component::CharacterState::MOVE, Some(false));
+                            update_state(component::CharacterState::MOVE, Some(true));
                         }
                         PhysicalKey::Code(KeyCode::KeyX) => {
                             sign_components.iter_mut().for_each(|(_, sign)| {

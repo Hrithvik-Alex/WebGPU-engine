@@ -184,7 +184,7 @@ impl<'a> ApplicationHandler for App<'a> {
                             &state.vertex_array_components,
                             &state.light_components,
                             &state.metadata_components,
-                            &textures,
+                            &state.sprite_sheets,
                             &state.context,
                             &mut state.gui,
                             state.window.clone(),

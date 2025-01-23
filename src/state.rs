@@ -97,12 +97,21 @@ impl<'a> State<'a> {
             popup_type: gui::PopupType::SCROLL,
         };
 
-        let hero_sprite_sheet = Rc::new(RefCell::new(sprite::SpriteSheet::new(
+        // let hero_sprite_sheet = Rc::new(RefCell::new(sprite::SpriteSheet::new(
+        //     &context,
+        //     "./assets/warrior_spritesheet_calciumtrice.png".to_string(),
+        //     Some("./assets/warrior_spritesheet_calciumtrice_n.png".to_string()),
+        //     32,
+        //     32,
+        //     true,
+        // )));
+
+        let mira_sprite_sheet = Rc::new(RefCell::new(sprite::SpriteSheet::new(
             &context,
-            "./assets/warrior_spritesheet_calciumtrice.png".to_string(),
-            Some("./assets/warrior_spritesheet_calciumtrice_n.png".to_string()),
-            32,
-            32,
+            "./assets/mira.png".to_string(),
+            None,
+            80,
+            64,
             true,
         )));
 
@@ -179,7 +188,7 @@ impl<'a> State<'a> {
         )));
 
         let sprite_sheets = vec![
-            hero_sprite_sheet.clone(),
+            mira_sprite_sheet.clone(),
             scroll_sprite_sheet.clone(),
             parallax_1_sprite_sheet.clone(),
             parallax_2_sprite_sheet.clone(),
@@ -669,34 +678,50 @@ impl<'a> State<'a> {
         let character = {
             let position_component = component::PositionComponent {
                 position: self.mira_game_state.mira_init_position,
-                scale: cgmath::Vector2::new(64., 64.),
+                scale: cgmath::Vector2::new(80., 80.),
             };
 
             let texture_index = 0; // warrior
 
-            let vertex_array_component = component::VertexArrayComponent::textured_quad(
+            let mut vertex_array_component = component::VertexArrayComponent::textured_quad(
                 texture_index,
                 component::VertexArrayComponent::OBJECT_Z,
             );
 
+            vertex_array_component.is_flipped = true;
+
             let sprite_animation_idle = animation::SpriteAnimation {
                 animation_index: 0,
-                sprite_count: 10,
+                sprite_count: 5,
                 start_index: 0,
                 per_sprite_duration: Duration::new(0, 125000000),
                 current_elapsed_time: Duration::new(0, 0),
             };
             let sprite_animation_run = animation::SpriteAnimation {
                 animation_index: 0,
-                sprite_count: 10,
+                sprite_count: 8,
                 start_index: 20,
                 per_sprite_duration: Duration::new(0, 125000000),
                 current_elapsed_time: Duration::new(0, 0),
             };
-            let sprite_animation_attack = animation::SpriteAnimation {
+            // let sprite_animation_attack = animation::SpriteAnimation {
+            //     animation_index: 0,
+            //     sprite_count: 10,
+            //     start_index: 30,
+            //     per_sprite_duration: Duration::new(0, 125000000),
+            //     current_elapsed_time: Duration::new(0, 0),
+            // };
+            let sprite_animation_jump_up = animation::SpriteAnimation {
                 animation_index: 0,
-                sprite_count: 10,
+                sprite_count: 4,
                 start_index: 30,
+                per_sprite_duration: Duration::new(0, 125000000),
+                current_elapsed_time: Duration::new(0, 0),
+            };
+            let sprite_animation_jump_down = animation::SpriteAnimation {
+                animation_index: 0,
+                sprite_count: 4,
+                start_index: 40,
                 per_sprite_duration: Duration::new(0, 125000000),
                 current_elapsed_time: Duration::new(0, 0),
             };
@@ -711,7 +736,14 @@ impl<'a> State<'a> {
                 .insert(component::CharacterState::MOVE, sprite_animation_run);
             sprite_animation_controller
                 .animation_map
-                .insert(component::CharacterState::ATTACK, sprite_animation_attack);
+                .insert(component::CharacterState::JUMP_UP, sprite_animation_jump_up);
+            sprite_animation_controller.animation_map.insert(
+                component::CharacterState::JUMP_DOWN,
+                sprite_animation_jump_down,
+            );
+            // sprite_animation_controller
+            //     .animation_map
+            //     .insert(component::CharacterState::ATTACK, sprite_animation_attack);
 
             let sheet_position_component = sprite::SheetPositionComponent {
                 sprite_sheet: self.sprite_sheets[texture_index as usize].clone(),

@@ -3,27 +3,27 @@ var pixel_sampler: sampler;
 
 @group(1) @binding(1)
 var t_character: texture_2d<f32>;
-@group(1) @binding(2)
-var n_character: texture_2d<f32>;
+// @group(1) @binding(2)
+// var n_character: texture_2d<f32>;
 
-@group(1) @binding(3)
+@group(1) @binding(2)
 var t_minotaur: texture_2d<f32>;
 // @group(2) @binding(4)
 // var n_minotaur: texture_2d<f32>;
 
-@group(1) @binding(4)
+@group(1) @binding(3)
 var t_bg1: texture_2d<f32>;
 
-@group(1) @binding(5)
+@group(1) @binding(4)
 var t_bg2: texture_2d<f32>;
 
-@group(1) @binding(6)
+@group(1) @binding(5)
 var t_bg3: texture_2d<f32>;
 
-@group(1) @binding(7)
+@group(1) @binding(6)
 var t_bg4: texture_2d<f32>;
 
-@group(1) @binding(8)
+@group(1) @binding(7)
 var t_signpost: texture_2d<f32>;
 
 struct TextureInfo {
@@ -40,8 +40,8 @@ fn get_texture_color(extra_info: u32, tex_coords: vec2<f32>) -> TextureInfo {
     switch texture_num {
         case 0u: {
             color = textureSample(t_character, pixel_sampler, tex_coords);
-            normal = textureSample(n_character, pixel_sampler, tex_coords); 
-            has_normal = true;
+            // normal = textureSample(n_character, pixel_sampler, tex_coords); 
+            // has_normal = true;
         }
 
         case 1u: {

@@ -1,4 +1,6 @@
+use std::cell::RefCell;
 use std::convert;
+use std::rc::Rc;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -10,6 +12,7 @@ use crate::gui;
 use crate::model;
 use crate::model::ModelVertex2d;
 use crate::model::Vertex;
+use crate::sprite;
 use crate::texture;
 use crate::uniform;
 use crate::uniform::LightUniform;
@@ -381,19 +384,23 @@ impl RenderSystem {
     fn get_vertices_for_entity<'a>(
         pos: &'a component::PositionComponent,
         vertex_array: &'a component::VertexArrayComponent,
+        sprite_sheets: &Vec<Rc<RefCell<sprite::SpriteSheet>>>,
         cur_len: usize,
     ) -> (
         impl Iterator<Item = ModelVertex2d> + 'a,
         impl Iterator<Item = u32> + 'a,
     ) {
+        let max_x = vertex_array.tex_coords.iter().map(|tex| tex.x).fold(f32::MIN, |a, b| a.max(b));
+        let min_x = vertex_array.tex_coords.iter().map(|tex| tex.x).fold(f32::MAX, |a, b| a.min(b));
         (
             vertex_array
                 .vertices
                 .iter()
                 .zip(vertex_array.tex_coords.iter())
-                .map(|(vertex_pos, &tex_coord)| {
+                .map(move |(vertex_pos, &tex_coord)| {
                     let final_tex_coord = if vertex_array.is_flipped {
-                        Vector2::new(1. - tex_coord.x, tex_coord.y)
+                        let tex_coord_x = if tex_coord.x == max_x {min_x} else {max_x};
+                        Vector2::new(tex_coord_x, tex_coord.y)
                     } else {
                         tex_coord
                     };
@@ -421,7 +428,8 @@ impl RenderSystem {
     }
 
     fn get_vertex_and_lighting_data(
-pipeline_infos: Vec<PipelineInfo>
+pipeline_infos: Vec<PipelineInfo>,
+sprite_sheets: &Vec<Rc<RefCell<sprite::SpriteSheet>>>,
     ) -> (ModelBuffer, Vec<LightUniform>, usize) {
         let (vertices, indices, light_uniforms, len) = 
         
@@ -432,7 +440,7 @@ pipeline_infos: Vec<PipelineInfo>
                 PipelineInfo {pos,  v_arr, light,metadata}| {
                     let cur_len = vertices.len();
                     let (entity_vertices, entity_indices) =
-                        Self::get_vertices_for_entity(pos, v_arr, cur_len);
+                        Self::get_vertices_for_entity(pos, v_arr, &sprite_sheets, cur_len);
                     vertices.extend(entity_vertices);
                     indices.extend(entity_indices);
 
@@ -465,7 +473,7 @@ pipeline_infos: Vec<PipelineInfo>
         vertex_arrays: &component::EntityMap<component::VertexArrayComponent>,
         lights: &component::EntityMap<uniform::LightComponent>,
         metadata_components: &component::EntityMap<component::MetadataComponent>,
-        textures: &Vec<Arc<texture::Texture>>,
+        sprite_sheets: &Vec<Rc<RefCell<sprite::SpriteSheet>>>,
         context: &context::Context,
         gui: &mut gui::Gui,
         window: Arc<Window>,
@@ -550,11 +558,11 @@ pipeline_infos: Vec<PipelineInfo>
         });
 
         let (standard_model_buffer, standard_light_uniforms, _) = Self::get_vertex_and_lighting_data(
-standard_pipeline_infos
+standard_pipeline_infos, sprite_sheets
         );
 
         let (collectible_model_buffer, collectible_light_uniforms, _) = Self::get_vertex_and_lighting_data(
-            collectible_pipeline_infos
+            collectible_pipeline_infos, sprite_sheets
                     );
 
 
@@ -856,7 +864,7 @@ standard_pipeline_infos
                         (Vec::new(), Vec::new()),
                         |(mut vertices, mut indices), (pos, vertex_array)| {
                             let cur_len = vertices.len();
-                            let (v, i) = Self::get_vertices_for_entity(&pos, vertex_array, cur_len);
+                            let (v, i) = Self::get_vertices_for_entity(&pos, vertex_array, sprite_sheets, cur_len);
                             vertices.extend(v);
                             indices.extend(i);
                             (vertices, indices)

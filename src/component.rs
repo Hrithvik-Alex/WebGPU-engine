@@ -30,6 +30,7 @@ pub struct VertexArrayComponent {
     pub shader_type: ShaderType,
     // TODO: this should maybe be in positioncomponent
     pub z_value: f32,
+    //TODO: hacky
 }
 
 impl Component for VertexArrayComponent {
@@ -158,6 +159,8 @@ pub enum CharacterState {
     IDLE,
     MOVE,
     ATTACK,
+    JUMP_UP,
+    JUMP_DOWN,
 }
 
 #[derive(Debug)]

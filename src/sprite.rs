@@ -143,7 +143,7 @@ impl SpriteSheetSystem {
 pub struct SpriteSheet {
     sprite_width: u32,
     sprite_height: u32,
-    dimensions: (u32, u32),
+    pub dimensions: (u32, u32),
     texture: Arc<texture::Texture>,
 
     texture_path: String,
