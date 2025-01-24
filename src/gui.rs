@@ -173,10 +173,10 @@ impl Gui {
                 game::GameMode::POPUP => {
                     let popup_size = egui::vec2(rect.x, rect.y); // Desired popup size
 
-                    debug!(
-                        "{:?} {:?} {:?}",
-                        rect.y, self.scroll_content_size, self.scroll_offset.y
-                    );
+                    // debug!(
+                    //     "{:?} {:?} {:?}",
+                    //     rect.y, self.scroll_content_size, self.scroll_offset.y
+                    // );
 
                     let scroll_top_margin = clamp_min(30. - self.scroll_offset.y, 5.);
                     let scroll_bot_margin = clamp(
@@ -188,7 +188,7 @@ impl Gui {
                         30.,
                     );
 
-                    debug!("{:?} {:?}", scroll_top_margin, scroll_bot_margin);
+                    // debug!("{:?} {:?}", scroll_top_margin, scroll_bot_margin);
 
                     // .fit_to_exact_size(popup_size);
                     // .maintain_aspect_ratio(true);
@@ -291,7 +291,7 @@ impl Gui {
                                     let output = scroll_area.show(ui, |ui| {
                                         ui.vertical_centered(|ui| {
                                             ui.label(RichText::new(info.popup_text).font(FontId {
-                                                size: 18.0,
+                                                size: 25.0,
                                                 family: egui::epaint::FontFamily::Name(
                                                     "Geo-Regular".into(),
                                                 ),
@@ -311,7 +311,7 @@ impl Gui {
                         .anchor(Align2::RIGHT_TOP, [-10.0, 10.0])
                         .show(&ctx, |mut ui| {
                             ui.horizontal(|ui| {
-                                ui.label("IMG");
+                                ui.label("ESC");
                                 ui.label("to close");
                             })
                         });
@@ -335,25 +335,25 @@ impl Gui {
                 }
             }
 
-            egui::Window::new("statistics")
-                // .vscroll(true)
-                .default_open(true)
-                .max_width(1000.0)
-                .max_height(800.0)
-                .default_width(800.0)
-                .resizable(true)
-                .anchor(Align2::LEFT_TOP, [0.0, 0.0])
-                .show(&ctx, |mut ui| {
-                    // if ui.add(egui::Button::new("Click me")).clicked() {
-                    //     debug!("PRESSED")
-                    // }
+            // egui::Window::new("statistics")
+            //     // .vscroll(true)
+            //     .default_open(true)
+            //     .max_width(1000.0)
+            //     .max_height(800.0)
+            //     .default_width(800.0)
+            //     .resizable(true)
+            //     .anchor(Align2::LEFT_TOP, [0.0, 0.0])
+            //     .show(&ctx, |mut ui| {
+            //         // if ui.add(egui::Button::new("Click me")).clicked() {
+            //         //     debug!("PRESSED")
+            //         // }
 
-                    ui.label(format!("FPS: {}", info.fps));
-                    // ui.add(egui::Slider::new(_, 0..=120).text("age"));
-                    ui.end_row();
+            //         ui.label(format!("FPS: {}", info.fps));
+            //         // ui.add(egui::Slider::new(_, 0..=120).text("age"));
+            //         ui.end_row();
 
-                    // proto_scene.egui(ui);
-                });
+            //         // proto_scene.egui(ui);
+            //     });
         });
 
         self.state

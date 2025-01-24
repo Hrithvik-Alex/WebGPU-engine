@@ -62,7 +62,9 @@ impl InputHandler {
                             if let Some(character_state_component) =
                                 character_state_component.as_mut()
                             {
-                                character_state_component.character_state = state.clone();
+                                if metadata_component.can_jump() {
+                                    character_state_component.character_state = state.clone();
+                                }
                             }
 
                             if let (Some(is_flipped), Some(vertex_array_component)) =

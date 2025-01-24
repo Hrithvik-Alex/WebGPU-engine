@@ -84,7 +84,7 @@ impl RenderSystem {
     const OUTLINE_SCALE_FACTOR: f32 = 1.1;
     const WORKGROUP_SIZE_X: u32 = 8;
     const WORKGROUP_SIZE_Y: u32 = 8;
-    const AMBIENT_LIGHT_INTENSITY : f32 = 0.2;
+    const AMBIENT_LIGHT_INTENSITY : f32 = 0.5;
 
 
 
@@ -398,6 +398,7 @@ impl RenderSystem {
                 .iter()
                 .zip(vertex_array.tex_coords.iter())
                 .map(move |(vertex_pos, &tex_coord)| {
+                    // TODO: hacky POS
                     let final_tex_coord = if vertex_array.is_flipped {
                         let tex_coord_x = if tex_coord.x == max_x {min_x} else {max_x};
                         Vector2::new(tex_coord_x, tex_coord.y)
@@ -734,27 +735,27 @@ standard_pipeline_infos, sprite_sheets
 
 
 
-            render_pass.set_pipeline(&self.wireframe_render_pipeline);
+            // render_pass.set_pipeline(&self.wireframe_render_pipeline);
 
-            let wireframe_bind_group =
-                context
-                    .device
-                    .create_bind_group(&wgpu::BindGroupDescriptor {
-                        label: Some("wireframe bind group"),
-                        layout: &self.wireframe_bind_group_layout,
-                        entries: &[
-                            wgpu::BindGroupEntry {
-                                binding: 0,
-                                resource: standard_vertex_buffer.as_entire_binding(),
-                            },
-                            wgpu::BindGroupEntry {
-                                binding: 1,
-                                resource: standard_index_buffer.as_entire_binding(),
-                            },
-                        ],
-                    });
-            render_pass.set_bind_group(1, &wireframe_bind_group, &[]);
-            render_pass.draw(0..standard_num_indices as u32 * 2, 0..1); // TODO: slightly overdraws 6 instead of 5 edges per, maybe optimize?
+            // let wireframe_bind_group =
+            //     context
+            //         .device
+            //         .create_bind_group(&wgpu::BindGroupDescriptor {
+            //             label: Some("wireframe bind group"),
+            //             layout: &self.wireframe_bind_group_layout,
+            //             entries: &[
+            //                 wgpu::BindGroupEntry {
+            //                     binding: 0,
+            //                     resource: standard_vertex_buffer.as_entire_binding(),
+            //                 },
+            //                 wgpu::BindGroupEntry {
+            //                     binding: 1,
+            //                     resource: standard_index_buffer.as_entire_binding(),
+            //                 },
+            //             ],
+            //         });
+            // render_pass.set_bind_group(1, &wireframe_bind_group, &[]);
+            // render_pass.draw(0..standard_num_indices as u32 * 2, 0..1); // TODO: slightly overdraws 6 instead of 5 edges per, maybe optimize?
         }
 
         {

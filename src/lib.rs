@@ -124,6 +124,7 @@ impl<'a> ApplicationHandler for App<'a> {
                     &mut state.collectible_components,
                     &mut state.sign_components,
                     &mut state.moving_platform_components,
+                    &mut state.character_state_components,
                     current_time,
                     &state.game_mode,
                 );
@@ -188,7 +189,7 @@ impl<'a> ApplicationHandler for App<'a> {
                             &state.context,
                             &mut state.gui,
                             state.window.clone(),
-                            true,
+                            false,
                             current_time,
                             &state.world_uniform,
                             &state.camera,

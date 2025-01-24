@@ -34,8 +34,7 @@ impl MiraGameState {
                     if pos.position.y < 0. {
                         pos.position = self.mira_init_position;
                         if let Some(collider_box) = collider {
-                            collider_box.bounding_box.bottom_left = pos.position - pos.scale / 2.0;
-                            collider_box.bounding_box.top_right = pos.position + pos.scale / 2.0;
+                            collider_box.bounding_box.update(pos.position);
                         }
                     }
                 }

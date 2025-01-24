@@ -187,6 +187,15 @@ impl<'a> State<'a> {
             true,
         )));
 
+        let terrain_sprite_sheet = Rc::new(RefCell::new(sprite::SpriteSheet::new(
+            &context,
+            "./assets/tileset.png".to_string(),
+            None,
+            32,
+            32,
+            true,
+        )));
+
         let sprite_sheets = vec![
             mira_sprite_sheet.clone(),
             scroll_sprite_sheet.clone(),
@@ -195,6 +204,7 @@ impl<'a> State<'a> {
             parallax_3_sprite_sheet.clone(),
             parallax_4_sprite_sheet.clone(),
             signpost_sprite_sheet.clone(),
+            terrain_sprite_sheet.clone(),
         ];
 
         // let textures = sprite_sheets
@@ -295,7 +305,7 @@ impl<'a> State<'a> {
             let metadata_component = component::MetadataComponent::new(false, false);
 
             let parallax_component = component::ParallaxComponent {
-                move_speed: 10.,
+                move_speed: 5.,
                 layer,
             };
 
@@ -338,7 +348,7 @@ impl<'a> State<'a> {
             let metadata_component = component::MetadataComponent::new(false, false);
 
             let parallax_component = component::ParallaxComponent {
-                move_speed: 7.,
+                move_speed: 3.,
                 layer,
             };
 
@@ -381,7 +391,7 @@ impl<'a> State<'a> {
             let metadata_component = component::MetadataComponent::new(false, false);
 
             let parallax_component = component::ParallaxComponent {
-                move_speed: 4.,
+                move_speed: 1.,
                 layer,
             };
 
@@ -448,26 +458,33 @@ impl<'a> State<'a> {
             let mut create_tile = |position, scale, moving_platform_component| {
                 let position_component = component::PositionComponent { position, scale };
 
+                let texture_index = 7;
                 let vertex_array_component: component::VertexArrayComponent =
                     component::VertexArrayComponent::textured_quad(
-                        999,
+                        texture_index,
                         component::VertexArrayComponent::FOREGROUND_Z,
                     );
 
                 let collider_box_component = ColliderBoxComponent {
                     bounding_box: physics::BoundingBox {
-                        bottom_left: position_component.position - position_component.scale / 2.0,
-                        top_right: position_component.position + position_component.scale / 2.0,
+                        position: position_component.position,
+                        bottom_left_offset: -1.0 * position_component.scale / 2.0,
+                        top_right_offset: position_component.scale / 2.0,
                     },
                 };
 
                 let metadata_component = component::MetadataComponent::new(false, false);
 
+                let sheet_position_component = sprite::SheetPositionComponent {
+                    sprite_sheet: self.sprite_sheets[texture_index as usize].clone(),
+                    sheet_position: cgmath::Vector2::new(1, 0),
+                };
+
                 self.add_entity(
                     Some(position_component),
                     Some(vertex_array_component),
                     None,
-                    None,
+                    Some(sheet_position_component),
                     None,
                     Some(collider_box_component),
                     None,
@@ -595,7 +612,7 @@ impl<'a> State<'a> {
 
         let light = {
             let position_component = component::PositionComponent {
-                position: cgmath::Vector2::new(100., 200.),
+                position: cgmath::Vector2::new(100., -500.),
                 scale: cgmath::Vector2::new(30., 30.),
             };
 
@@ -634,51 +651,51 @@ impl<'a> State<'a> {
             )
         };
 
-        let light2 = {
-            let position_component = component::PositionComponent {
-                position: cgmath::Vector2::new(500., 200.),
-                scale: cgmath::Vector2::new(30., 30.),
-            };
+        // let light2 = {
+        //     let position_component = component::PositionComponent {
+        //         position: cgmath::Vector2::new(500., 200.),
+        //         scale: cgmath::Vector2::new(30., 30.),
+        //     };
 
-            let vertex_array_component: component::VertexArrayComponent =
-                component::VertexArrayComponent::circle(
-                    component::VertexArrayComponent::FOREGROUND_Z,
-                );
+        //     let vertex_array_component: component::VertexArrayComponent =
+        //         component::VertexArrayComponent::circle(
+        //             component::VertexArrayComponent::FOREGROUND_Z,
+        //         );
 
-            let light_component = uniform::LightComponent {
-                linear_dropoff: 0.0007,
-                quadratic_dropoff: 0.0001,
-                ambient_strength: 10.,
-                diffuse_strength: 15.,
-                color: cgmath::Vector3 {
-                    x: 1.0,
-                    y: 1.0,
-                    z: 0.0,
-                },
-            };
-            let metadata_component = component::MetadataComponent::new(false, false);
+        //     let light_component = uniform::LightComponent {
+        //         linear_dropoff: 0.0007,
+        //         quadratic_dropoff: 0.0001,
+        //         ambient_strength: 10.,
+        //         diffuse_strength: 15.,
+        //         color: cgmath::Vector3 {
+        //             x: 1.0,
+        //             y: 1.0,
+        //             z: 0.0,
+        //         },
+        //     };
+        //     let metadata_component = component::MetadataComponent::new(false, false);
 
-            self.add_entity(
-                Some(position_component),
-                Some(vertex_array_component),
-                None,
-                None,
-                None,
-                None,
-                Some(light_component),
-                Some(metadata_component),
-                None,
-                None,
-                None,
-                None,
-            )
-        };
+        //     self.add_entity(
+        //         Some(position_component),
+        //         Some(vertex_array_component),
+        //         None,
+        //         None,
+        //         None,
+        //         None,
+        //         Some(light_component),
+        //         Some(metadata_component),
+        //         None,
+        //         None,
+        //         None,
+        //         None,
+        //     )
+        // };
 
         // entity for player
         let character = {
             let position_component = component::PositionComponent {
                 position: self.mira_game_state.mira_init_position,
-                scale: cgmath::Vector2::new(80., 80.),
+                scale: cgmath::Vector2::new(100., 100.),
             };
 
             let texture_index = 0; // warrior
@@ -756,8 +773,9 @@ impl<'a> State<'a> {
 
             let collider_box_component = ColliderBoxComponent {
                 bounding_box: physics::BoundingBox {
-                    bottom_left: position_component.position - position_component.scale / 2.0,
-                    top_right: position_component.position + position_component.scale / 2.0,
+                    position: position_component.position,
+                    bottom_left_offset: cgmath::Vector2 { x: -12.5, y: -50. },
+                    top_right_offset: cgmath::Vector2 { x: 12.5, y: 25. },
                 },
             };
 
@@ -781,8 +799,8 @@ impl<'a> State<'a> {
 
         let signpost = {
             let position_component = component::PositionComponent {
-                position: cgmath::Vector2::new(232., 113.),
-                scale: cgmath::Vector2::new(32., 32.),
+                position: cgmath::Vector2::new(248., 120.),
+                scale: cgmath::Vector2::new(48., 48.),
             };
 
             let texture_index = 6; // scroll
@@ -797,8 +815,9 @@ impl<'a> State<'a> {
             let sign_component = component::SignComponent {
                 in_range: false,
                 bounding_box: physics::BoundingBox {
-                    bottom_left: position_component.position - position_component.scale / 2.0,
-                    top_right: position_component.position + position_component.scale / 2.0,
+                    position: position_component.position,
+                    bottom_left_offset: -1.0 * position_component.scale / 2.0,
+                    top_right_offset: position_component.scale / 2.0,
                 },
                 popup_text: &INTRO_SIGNPOST,
             };
@@ -834,8 +853,9 @@ impl<'a> State<'a> {
 
                 let collectible_component = component::CollectibleComponent {
                     bounding_box: physics::BoundingBox {
-                        bottom_left: position_component.position - position_component.scale / 2.0,
-                        top_right: position_component.position + position_component.scale / 2.0,
+                        position: position_component.position,
+                        bottom_left_offset: -1.0 * position_component.scale / 2.0,
+                        top_right_offset: position_component.scale / 2.0,
                     },
                     is_collected: false,
                     popup_text: &text,

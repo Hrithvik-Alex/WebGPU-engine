@@ -11,8 +11,23 @@ use crate::{
 };
 
 pub struct BoundingBox {
-    pub bottom_left: Vector2<f32>,
-    pub top_right: Vector2<f32>,
+    pub position: Vector2<f32>,
+    pub bottom_left_offset: Vector2<f32>,
+    pub top_right_offset: Vector2<f32>,
+}
+
+impl BoundingBox {
+    pub fn update(&mut self, position: Vector2<f32>) {
+        self.position = position;
+    }
+
+    fn top_right(&self) -> Vector2<f32> {
+        self.position + self.top_right_offset
+    }
+
+    fn bottom_left(&self) -> Vector2<f32> {
+        self.position + self.bottom_left_offset
+    }
 }
 
 pub struct ColliderBoxComponent {
@@ -69,37 +84,37 @@ impl PhysicsSystem {
     }
 
     fn is_colliding(a: &BoundingBox, b: &BoundingBox) -> bool {
-        !(a.top_right.x <= b.bottom_left.x
-            || a.bottom_left.x >= b.top_right.x
-            || a.top_right.y <= b.bottom_left.y
-            || a.bottom_left.y >= b.top_right.y)
+        !(a.top_right().x <= b.bottom_left().x
+            || a.bottom_left().x >= b.top_right().x
+            || a.top_right().y <= b.bottom_left().y
+            || a.bottom_left().y >= b.top_right().y)
     }
 
     fn is_touching(a: &BoundingBox, b: &BoundingBox) -> bool {
-        !(a.top_right.x < b.bottom_left.x
-            || a.bottom_left.x > b.top_right.x
-            || a.top_right.y < b.bottom_left.y
-            || a.bottom_left.y > b.top_right.y)
+        !(a.top_right().x < b.bottom_left().x
+            || a.bottom_left().x > b.top_right().x
+            || a.top_right().y < b.bottom_left().y
+            || a.bottom_left().y > b.top_right().y)
     }
 
     fn get_collision_delta(a: &BoundingBox, b: &BoundingBox) -> (Vector2<f32>, f32) {
         let horizontal_depth = f32::min(
-            a.top_right.x - b.bottom_left.x,
-            b.top_right.x - a.bottom_left.x,
+            a.top_right().x - b.bottom_left().x,
+            b.top_right().x - a.bottom_left().x,
         );
         let vertical_depth = f32::min(
-            a.top_right.y - b.bottom_left.y,
-            b.top_right.y - a.bottom_left.y,
+            a.top_right().y - b.bottom_left().y,
+            b.top_right().y - a.bottom_left().y,
         );
 
         if horizontal_depth < vertical_depth {
-            if a.bottom_left.x < b.bottom_left.x {
+            if a.bottom_left().x < b.bottom_left().x {
                 return (Vector2::unit_x(), horizontal_depth);
             } else {
                 return (Vector2::unit_x() * -1.0, horizontal_depth);
             }
         } else {
-            if a.bottom_left.y < b.bottom_left.y {
+            if a.bottom_left().y < b.bottom_left().y {
                 return (Vector2::unit_y(), vertical_depth);
             } else {
                 return (Vector2::unit_y() * -1.0, vertical_depth);
@@ -118,6 +133,7 @@ impl PhysicsSystem {
         collectible_components: &mut EntityMap<component::CollectibleComponent>,
         sign_components: &mut EntityMap<component::SignComponent>,
         moving_platform_components: &mut EntityMap<component::MovingPlatformComponent>,
+        character_state_components: &mut EntityMap<component::CharacterStateComponent>,
         current_time: Duration,
         game_mode: &game::GameMode,
     ) {
@@ -152,16 +168,16 @@ impl PhysicsSystem {
                 }
 
                 if let Some(collider_box) = collider_box {
-                    collider_box.bounding_box.bottom_left = pos.position - pos.scale / 2.0;
-                    collider_box.bounding_box.top_right = pos.position + pos.scale / 2.0;
+                    collider_box.bounding_box.update(pos.position);
                 }
             }
         });
 
-        let collider_deltas = utils::zip4_entities_1immut(
+        let collider_deltas = utils::zip5_entities_1immut(
             position_components,
             physics_components,
             metadata_components,
+            character_state_components,
             collider_box_components,
         )
         .map(
@@ -170,6 +186,7 @@ impl PhysicsSystem {
                 position_component,
                 physics_component,
                 metadata_component,
+                character_state_component,
                 collider_box_component1,
             )| {
                 let Some(position_component) = position_component else {
@@ -188,6 +205,10 @@ impl PhysicsSystem {
                             metadata_component.set_jump(false);
                             physics_component.velocity.y = Self::JUMP_VELOCITY;
                             physics_component.acceleration.y = -1. * Self::JUMP_ACCELERATION;
+                            if let Some(character_state_component) = character_state_component {
+                                character_state_component.character_state =
+                                    component::CharacterState::JUMP_UP;
+                            }
                         }
                     }
                     // if input_handler.down_pressed {
@@ -220,8 +241,9 @@ impl PhysicsSystem {
                 };
                 let new_collision_box = ColliderBoxComponent {
                     bounding_box: BoundingBox {
-                        bottom_left: collider_box_component1.bounding_box.bottom_left + delta,
-                        top_right: collider_box_component1.bounding_box.top_right + delta,
+                        position: collider_box_component1.bounding_box.position + delta,
+                        bottom_left_offset: collider_box_component1.bounding_box.bottom_left_offset,
+                        top_right_offset: collider_box_component1.bounding_box.top_right_offset,
                     },
                 };
 
@@ -333,6 +355,20 @@ impl PhysicsSystem {
                     }
                 }
 
+                if let Some(character_state_component) = character_state_component {
+                    if !metadata_component.can_jump() && delta_add.y < 0. {
+                        character_state_component.character_state =
+                            component::CharacterState::JUMP_DOWN;
+                    } else if !metadata_component.can_jump() && delta_add.y > 0. {
+                        character_state_component.character_state =
+                            component::CharacterState::JUMP_UP;
+                    } else if delta_add == cgmath::Vector2::zero() {
+                        character_state_component.character_state = component::CharacterState::IDLE;
+                    } else if delta_add.x != 0. {
+                        character_state_component.character_state = component::CharacterState::MOVE;
+                    }
+                }
+
                 if moving_platform_is_horizontal {
                     delta_add.x += moving_platform_to_add;
                 } else {
@@ -352,8 +388,9 @@ impl PhysicsSystem {
             .zip(collider_box_components.iter_mut())
             .for_each(|(delta, (_, collider_box_component))| {
                 if let Some(collider_box_component) = collider_box_component {
-                    collider_box_component.bounding_box.bottom_left += *delta;
-                    collider_box_component.bounding_box.top_right += *delta;
+                    collider_box_component
+                        .bounding_box
+                        .update(collider_box_component.bounding_box.position + *delta);
                 }
             });
     }
