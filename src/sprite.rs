@@ -146,26 +146,29 @@ pub struct SpriteSheet {
     pub dimensions: (u32, u32),
     texture: Arc<texture::Texture>,
 
-    texture_path: String,
-    normal_path: Option<String>,
+    label: &'static str,
+    texture_bytes: &'static [u8],
+    normal_bytes: Option<&'static [u8]>,
     manual_premultiply: bool,
 }
 
 impl SpriteSheet {
     pub fn new(
         context: &context::Context,
-        texture_path: String,
-        normal_path: Option<String>,
+        label: &'static str,
+        texture_bytes: &'static [u8],
+        normal_bytes: Option<&'static [u8]>,
         sprite_width: u32,
         sprite_height: u32,
         manual_premultiply: bool,
     ) -> Self {
         let texture = Arc::new(
-            crate::texture::Texture::from_path(
+            crate::texture::Texture::from_bytes(
                 &context.device,
                 &context.queue,
-                texture_path.clone(),
-                normal_path.clone(),
+                texture_bytes,
+                normal_bytes,
+                label,
                 manual_premultiply,
             )
             .unwrap(),
@@ -179,8 +182,9 @@ impl SpriteSheet {
             sprite_height,
             dimensions,
             texture,
-            texture_path,
-            normal_path,
+            label,
+            texture_bytes,
+            normal_bytes,
             manual_premultiply,
         }
     }
@@ -196,11 +200,12 @@ impl SpriteSheet {
 
     pub fn resize(&mut self, context: &context::Context) {
         self.texture = Arc::new(
-            crate::texture::Texture::from_path(
+            crate::texture::Texture::from_bytes(
                 &context.device,
                 &context.queue,
-                self.texture_path.clone(),
-                self.normal_path.clone(),
+                self.texture_bytes,
+                self.normal_bytes,
+                self.label,
                 self.manual_premultiply,
             )
             .unwrap(),

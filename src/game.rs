@@ -3,16 +3,16 @@ use crate::{
     physics, state, utils,
 };
 
-pub struct MiraGameState {
+pub struct PlatformerGameState {
     pub notes_collected: u32,
-    pub mira_init_position: cgmath::Vector2<f32>,
+    pub character_init_position: cgmath::Vector2<f32>,
 }
 
-impl MiraGameState {
-    pub fn new(mira_init_position: cgmath::Vector2<f32>) -> Self {
+impl PlatformerGameState {
+    pub fn new(character_init_position: cgmath::Vector2<f32>) -> Self {
         Self {
             notes_collected: 0,
-            mira_init_position,
+            character_init_position,
         }
     }
 
@@ -32,7 +32,7 @@ impl MiraGameState {
                 assert!(pos.is_some());
                 if let Some(pos) = pos {
                     if pos.position.y < 0. {
-                        pos.position = self.mira_init_position;
+                        pos.position = self.character_init_position;
                         if let Some(collider_box) = collider {
                             collider_box.bounding_box.update(pos.position);
                         }

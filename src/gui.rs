@@ -77,34 +77,28 @@ impl Gui {
             false,
         );
         let scroll_image = {
-            let rgba = image::load_from_memory(
-                &std::fs::read("./assets/scroll.png").expect("failed to load scroll"),
-            )
-            .unwrap()
-            .to_rgba8()
-            .to_vec();
+            let rgba = image::load_from_memory(include_bytes!("../assets/scroll.png"))
+                .unwrap()
+                .to_rgba8()
+                .to_vec();
             let image = ColorImage::from_rgba_unmultiplied([16, 16], &rgba);
             egui_context.load_texture("scroll", image, TextureOptions::default())
         };
 
         let scroll_background_image = {
-            let rgba = image::load_from_memory(
-                &std::fs::read("./assets/Pergament9.png").expect("failed to load scroll"),
-            )
-            .unwrap()
-            .to_rgba8()
-            .to_vec();
+            let rgba = image::load_from_memory(include_bytes!("../assets/Pergament9.png"))
+                .unwrap()
+                .to_rgba8()
+                .to_vec();
             let image = ColorImage::from_rgba_unmultiplied([1160, 965], &rgba);
             egui_context.load_texture("scroll_background", image, TextureOptions::default())
         };
 
         let wood_background_image = {
-            let rgba = image::load_from_memory(
-                &std::fs::read("./assets/wood_bg.png").expect("failed to load scroll"),
-            )
-            .unwrap()
-            .to_rgba8()
-            .to_vec();
+            let rgba = image::load_from_memory(include_bytes!("../assets/wood_bg.png"))
+                .unwrap()
+                .to_rgba8()
+                .to_vec();
             let image = ColorImage::from_rgba_unmultiplied([879, 879], &rgba);
             egui_context.load_texture("wood_background", image, TextureOptions::default())
         };

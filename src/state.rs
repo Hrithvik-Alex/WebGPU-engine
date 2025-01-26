@@ -25,16 +25,11 @@ use wgpu::naga::compact;
 use winit::window::Window;
 
 lazy_static! {
-    static ref INTRO_SIGNPOST: String =
-        fs::read_to_string("./src/text/signpost.txt").expect("Failed to read the file");
-    static ref FIRST_SCROLL: String =
-        fs::read_to_string("./src/text/first.txt").expect("Failed to read the file");
-    static ref SECOND_SCROLL: String =
-        fs::read_to_string("./src/text/second.txt").expect("Failed to read the file");
-    static ref THIRD_SCROLL: String =
-        fs::read_to_string("./src/text/third.txt").expect("Failed to read the file");
-    static ref FOURTH_SCROLL: String =
-        fs::read_to_string("./src/text/fourth.txt").expect("Failed to read the file");
+    static ref INTRO_SIGNPOST: &'static str = include_str!("./text/signpost.txt");
+    static ref FIRST_SCROLL: &'static str = include_str!("./text/first.txt");
+    static ref SECOND_SCROLL: &'static str = include_str!("./text/second.txt");
+    static ref THIRD_SCROLL: &'static str = include_str!("./text/third.txt");
+    static ref FOURTH_SCROLL: &'static str = include_str!("./text/fourth.txt");
 }
 pub struct State<'a> {
     pub context: context::Context<'a>,
@@ -67,7 +62,7 @@ pub struct State<'a> {
     pub physics_system: physics::PhysicsSystem,
 
     // game
-    pub mira_game_state: game::MiraGameState,
+    pub platformer_game_state: game::PlatformerGameState,
     pub game_mode: game::GameMode,
 }
 
@@ -106,9 +101,10 @@ impl<'a> State<'a> {
         //     true,
         // )));
 
-        let mira_sprite_sheet = Rc::new(RefCell::new(sprite::SpriteSheet::new(
+        let character_sprite_sheet = Rc::new(RefCell::new(sprite::SpriteSheet::new(
             &context,
-            "./assets/mira.png".to_string(),
+            "character",
+            include_bytes!("../assets/mira.png"),
             None,
             80,
             64,
@@ -117,7 +113,8 @@ impl<'a> State<'a> {
 
         let scroll_sprite_sheet = Rc::new(RefCell::new(sprite::SpriteSheet::new(
             &context,
-            "./assets/scroll.png".to_string(),
+            "scroll",
+            include_bytes!("../assets/scroll.png"),
             None,
             16,
             16,
@@ -144,7 +141,8 @@ impl<'a> State<'a> {
 
         let parallax_1_sprite_sheet = Rc::new(RefCell::new(sprite::SpriteSheet::new(
             &context,
-            "./assets/bg/P1.png".to_string(),
+            "px1",
+            include_bytes!("../assets/bg/P1.png"),
             None,
             576,
             324,
@@ -153,7 +151,8 @@ impl<'a> State<'a> {
 
         let parallax_2_sprite_sheet = Rc::new(RefCell::new(sprite::SpriteSheet::new(
             &context,
-            "./assets/bg/P2.png".to_string(),
+            "px2",
+            include_bytes!("../assets/bg/P2.png"),
             None,
             576,
             324,
@@ -162,7 +161,8 @@ impl<'a> State<'a> {
 
         let parallax_3_sprite_sheet = Rc::new(RefCell::new(sprite::SpriteSheet::new(
             &context,
-            "./assets/bg/P3.png".to_string(),
+            "px3",
+            include_bytes!("../assets/bg/P3.png"),
             None,
             576,
             324,
@@ -171,7 +171,8 @@ impl<'a> State<'a> {
 
         let parallax_4_sprite_sheet = Rc::new(RefCell::new(sprite::SpriteSheet::new(
             &context,
-            "./assets/bg/P4.png".to_string(),
+            "px4",
+            include_bytes!("../assets/bg/P4.png"),
             None,
             576,
             324,
@@ -180,7 +181,8 @@ impl<'a> State<'a> {
 
         let signpost_sprite_sheet = Rc::new(RefCell::new(sprite::SpriteSheet::new(
             &context,
-            "./assets/signpost.png".to_string(),
+            "signpost",
+            include_bytes!("../assets/signpost.png"),
             None,
             32,
             32,
@@ -189,7 +191,8 @@ impl<'a> State<'a> {
 
         let terrain_sprite_sheet = Rc::new(RefCell::new(sprite::SpriteSheet::new(
             &context,
-            "./assets/tileset.png".to_string(),
+            "terrain",
+            include_bytes!("../assets/tileset.png"),
             None,
             32,
             32,
@@ -197,7 +200,7 @@ impl<'a> State<'a> {
         )));
 
         let sprite_sheets = vec![
-            mira_sprite_sheet.clone(),
+            character_sprite_sheet.clone(),
             scroll_sprite_sheet.clone(),
             parallax_1_sprite_sheet.clone(),
             parallax_2_sprite_sheet.clone(),
@@ -244,7 +247,7 @@ impl<'a> State<'a> {
 
         let physics_system = physics::PhysicsSystem::new(Self::FIXED_UPDATE_DURATION);
 
-        let mira_game = game::MiraGameState::new(cgmath::Vector2::new(82., 132.));
+        let platformer_game = game::PlatformerGameState::new(cgmath::Vector2::new(82., 132.));
 
         Self {
             window,
@@ -271,7 +274,7 @@ impl<'a> State<'a> {
             input_handler,
             render_system,
             physics_system,
-            mira_game_state: mira_game,
+            platformer_game_state: platformer_game,
             game_mode: game::GameMode::STANDARD,
         }
     }
@@ -694,7 +697,7 @@ impl<'a> State<'a> {
         // entity for player
         let character = {
             let position_component = component::PositionComponent {
-                position: self.mira_game_state.mira_init_position,
+                position: self.platformer_game_state.character_init_position,
                 scale: cgmath::Vector2::new(100., 100.),
             };
 
@@ -1110,8 +1113,8 @@ impl<'a> State<'a> {
             .collect::<Vec<Arc<texture::Texture>>>()
     }
 
-    pub fn update_mira_game_state(&mut self) {
-        self.mira_game_state.update(
+    pub fn update_platformer_game_state(&mut self) {
+        self.platformer_game_state.update(
             &mut self.position_components,
             &mut self.collider_box_components,
             &mut self.metadata_components,
@@ -1127,7 +1130,7 @@ impl<'a> State<'a> {
             })
             .collect();
 
-        self.mira_game_state.notes_collected += entities_to_remove.len() as u32;
+        self.platformer_game_state.notes_collected += entities_to_remove.len() as u32;
 
         entities_to_remove.iter().for_each(|(entity, _)| {
             self.remove_entity(*entity);
@@ -1138,6 +1141,6 @@ impl<'a> State<'a> {
             self.gui_info.popup_text = entities_to_remove.get(0).unwrap().1;
             self.gui_info.popup_type = gui::PopupType::SCROLL;
         }
-        self.gui_info.notes_collected = self.mira_game_state.notes_collected;
+        self.gui_info.notes_collected = self.platformer_game_state.notes_collected;
     }
 }

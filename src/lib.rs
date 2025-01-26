@@ -23,20 +23,32 @@ use egui_winit::winit::{
     window::{Theme, Window, WindowAttributes, WindowId},
 };
 
+use instant::Instant;
 use log::debug;
+
 use physics::ColliderBoxComponent;
 use state::State;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::thread::current;
-use std::time::{Duration, Instant};
+use std::time::Duration;
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::util::SubscriberInitExt;
+use tracing_subscriber::EnvFilter;
 use winit::application::ApplicationHandler;
+use winit::event;
+use winit::event_loop::EventLoopProxy;
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
-pub struct App<'a> {
+enum UserEvent {
+    StateReady(state::State<'static>, Arc<Window>),
+}
+
+pub struct App {
     window: Option<Arc<Window>>,
-    state: Option<state::State<'a>>,
+    state: Option<state::State<'static>>,
+    event_loop_proxy: EventLoopProxy<UserEvent>,
     player: Option<component::Entity>,
 
     last_fps: u32,
@@ -47,8 +59,8 @@ pub struct App<'a> {
     ticks_elapsed: Duration,
 }
 
-impl<'a> App<'a> {
-    pub fn new() -> Self {
+impl App {
+    pub fn new(event_loop: &EventLoop<UserEvent>) -> Self {
         let start_time = Instant::now();
         let frames = 0;
         let seconds_elapsed = 0;
@@ -59,6 +71,7 @@ impl<'a> App<'a> {
         Self {
             window: None,
             state: None,
+            event_loop_proxy: event_loop.create_proxy(),
             player: None,
             start_time,
             last_fps: 0,
@@ -68,14 +81,23 @@ impl<'a> App<'a> {
             ticks_elapsed,
         }
     }
+
+    fn init_state(&mut self, mut state: State<'static>, window: Arc<Window>) {
+        let player = state.init();
+        self.window = Some(window);
+        self.state = Some(state);
+        self.player = Some(player);
+    }
 }
 
-impl<'a> ApplicationHandler for App<'a> {
+impl ApplicationHandler<UserEvent> for App {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         cfg_if::cfg_if! {
             if #[cfg(target_arch = "wasm32")] {
                 std::panic::set_hook(Box::new(console_error_panic_hook::hook));
-                console_log::init_with_level(log::Level::Warn).expect("Couldn't initialize logger");
+                console_log::init_with_level(log::Level::Debug).expect("Couldn't initialize logger");
+
+                debug!("It works!");
             } else {
                 env_logger::init();
             }
@@ -88,11 +110,53 @@ impl<'a> ApplicationHandler for App<'a> {
                 )
                 .unwrap(),
         );
-        let mut state = pollster::block_on(state::State::new(window.clone())); // (1)
-        let player = state.init();
-        self.window = Some(window); // (2)
-        self.state = Some(state);
-        self.player = Some(player);
+
+        #[cfg(target_arch = "wasm32")]
+        {
+            use web_sys::Element;
+            use winit::{dpi::PhysicalSize, platform::web::WindowExtWebSys};
+
+            web_sys::window()
+                .and_then(|win| win.document())
+                .and_then(|doc| {
+                    let dst = doc.get_element_by_id("wasm-game")?;
+                    let canvas = Element::from(window.canvas()?);
+                    dst.append_child(&canvas).ok()?;
+                    Some(())
+                })
+                .expect("Couldn't append canvas to document body.");
+
+            // Winit prevents sizing with CSS, so we have to set
+            // the size manually when on web.
+            let _ = window.request_inner_size(PhysicalSize::new(768, 500));
+
+            let state_future = State::new(window.clone());
+            let event_loop_proxy = self.event_loop_proxy.clone();
+
+            let state = async move {
+                let state = state_future.await;
+                assert!(event_loop_proxy
+                    .send_event(UserEvent::StateReady(state, window.clone()))
+                    .is_ok());
+            };
+
+            wasm_bindgen_futures::spawn_local(state)
+        }
+
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let state = pollster::block_on(State::new(window.clone()));
+            // self.init_state(state, window);
+            assert!(self
+                .event_loop_proxy
+                .send_event(UserEvent::StateReady(state, window))
+                .is_ok());
+        }
+    }
+
+    fn user_event(&mut self, event_loop: &ActiveEventLoop, event: UserEvent) {
+        let UserEvent::StateReady(state, window) = event;
+        self.init_state(state, window);
     }
 
     fn window_event(
@@ -155,7 +219,7 @@ impl<'a> ApplicationHandler for App<'a> {
                 &mut state.position_components,
             );
 
-            state.update_mira_game_state();
+            state.update_platformer_game_state();
 
             state.gui_info.fps = self.last_fps as u32;
 
@@ -247,9 +311,29 @@ impl<'a> ApplicationHandler for App<'a> {
         }
     }
 }
-
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
 pub fn run() {
+    let env_filter = EnvFilter::builder()
+        .with_default_directive(tracing::Level::DEBUG.into())
+        .from_env_lossy()
+        .add_directive("wgpu_core::device::resource=warn".parse().unwrap());
+    let subscriber = tracing_subscriber::registry().with(env_filter);
+    #[cfg(target_arch = "wasm32")]
+    {
+        use tracing_wasm::{WASMLayer, WASMLayerConfig};
+
+        console_error_panic_hook::set_once();
+        let wasm_layer = WASMLayer::new(WASMLayerConfig::default());
+
+        subscriber.with(wasm_layer).init();
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let fmt_layer = tracing_subscriber::fmt::Layer::default();
+        subscriber.with(fmt_layer).try_init();
+    }
+
     let event_loop = EventLoop::with_user_event().build().unwrap();
-    let mut app = App::new();
+    let mut app = App::new(&event_loop);
     event_loop.run_app(&mut app).unwrap();
 }
