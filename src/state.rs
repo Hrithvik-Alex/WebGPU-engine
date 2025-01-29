@@ -12,9 +12,11 @@ use crate::render_system;
 use crate::sprite;
 use crate::texture;
 use crate::uniform;
+use crate::wgsl_preprocessor;
 
 use lazy_static::lazy_static;
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::fs;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -35,12 +37,14 @@ pub struct State<'a> {
     pub context: context::Context<'a>,
     pub size: winit::dpi::PhysicalSize<u32>,
     pub window: Arc<Window>,
+    pub wgsl_preprocessor: wgsl_preprocessor::WgslPreprocessor,
     pub gui: gui::Gui,
     pub gui_info: gui::GuiInfo,
     pub sprite_sheets: Vec<Rc<RefCell<sprite::SpriteSheet>>>,
-    pub position_components: component::EntityMap<component::PositionComponent>,
     pub camera: camera::OrthographicCamera,
     pub world_uniform: uniform::WorldUniform,
+    // components
+    pub position_components: component::EntityMap<component::PositionComponent>,
     pub vertex_array_components: component::EntityMap<component::VertexArrayComponent>, // camera: camera::Camera,
     pub sprite_animation_controller_components:
         component::EntityMap<animation::SpriteAnimationControllerComponent>,
@@ -75,6 +79,7 @@ impl<'a> State<'a> {
 
     pub async fn new(window: Arc<Window>) -> State<'a> {
         let size = window.inner_size();
+        debug!("{:?}", size);
         let context: context::Context<'a> = context::Context::new(window.clone()).await;
 
         let gui = gui::Gui::new(
@@ -210,10 +215,28 @@ impl<'a> State<'a> {
             terrain_sprite_sheet.clone(),
         ];
 
-        // let textures = sprite_sheets
-        //     .iter()
-        //     .map(|sprite_sheet| sprite_sheet.texture())
-        //     .collect::<Vec<Arc<texture::Texture>>>();
+        // declare shader code for preprocessing
+        let mut shader_code = HashMap::new();
+        shader_code.insert("compute.wgsl", include_str!("./shaders/compute.wgsl"));
+        shader_code.insert("hover.wgsl", include_str!("./shaders/hover.wgsl"));
+        shader_code.insert("light.wgsl", include_str!("./shaders/light.wgsl"));
+        shader_code.insert(
+            "model_vertex.wgsl",
+            include_str!("./shaders/model_vertex.wgsl"),
+        );
+        shader_code.insert("outline.wgsl", include_str!("./shaders/outline.wgsl"));
+        shader_code.insert("post_popup.wgsl", include_str!("./shaders/post_popup.wgsl"));
+        shader_code.insert(
+            "post_standard.wgsl",
+            include_str!("./shaders/post_standard.wgsl"),
+        );
+        shader_code.insert("post.wgsl", include_str!("./shaders/post.wgsl"));
+        shader_code.insert("standard.wgsl", include_str!("./shaders/standard.wgsl"));
+        shader_code.insert("texture.wgsl", include_str!("./shaders/texture.wgsl"));
+        shader_code.insert("uniform.wgsl", include_str!("./shaders/uniform.wgsl"));
+        shader_code.insert("wireframe.wgsl", include_str!("./shaders/wireframe.wgsl"));
+
+        let wgsl_preprocessor = wgsl_preprocessor::WgslPreprocessor::new(shader_code);
 
         let camera = camera::OrthographicCamera::new(size.width, size.height, 0.1, 100.0);
 
@@ -243,7 +266,8 @@ impl<'a> State<'a> {
             .map(|sprite_sheet| sprite_sheet.borrow().texture())
             .collect::<Vec<Arc<texture::Texture>>>();
 
-        let render_system = render_system::RenderSystem::new(&textures, &context);
+        let render_system =
+            render_system::RenderSystem::new(&textures, &context, &wgsl_preprocessor);
 
         let physics_system = physics::PhysicsSystem::new(Self::FIXED_UPDATE_DURATION);
 
@@ -253,6 +277,7 @@ impl<'a> State<'a> {
             window,
             context,
             size,
+            wgsl_preprocessor,
             position_components,
             sprite_sheets,
             camera,
@@ -1091,6 +1116,7 @@ impl<'a> State<'a> {
         &self.window
     }
     pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
+        debug!("{:?}", new_size);
         if new_size.width > 0 && new_size.height > 0 {
             self.size = new_size;
             self.context.resize(new_size);

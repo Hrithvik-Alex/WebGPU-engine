@@ -33,29 +33,12 @@ fn vs_main(
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    var color: vec4<f32>;
-    var texture_num = in.extra_info & 255;
-    switch texture_num {
-        case 0u: {
-            color = textureSample(t_character, pixel_sampler, in.tex_coords);
-        }
+    var t_info = get_texture_color(in.extra_info, in.tex_coords);
+    var color = t_info.color;
 
-        case 1u: {
-            color = textureSample(t_minotaur, pixel_sampler, in.tex_coords);
-        }
-
-        case 2u: {
-            // color = textureSample(t_bg, pixel_sampler, in.tex_coords);
-            color = vec4(0.1,0.1,0.1,1);
-            // normal = vec4(0.,0,1,0);
-            // has_normal = true;
-        }
-        default: {
-            color = vec4<f32>(1.0, 0.0, 0.0, 1.0);
-        }
-    }
    if (color.w == 0 ) {
     discard;
    }
-    return vec4(0,0,1.,1.);
+
+   return color;
 }

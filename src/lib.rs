@@ -92,16 +92,16 @@ impl App {
 
 impl ApplicationHandler<UserEvent> for App {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-        cfg_if::cfg_if! {
-            if #[cfg(target_arch = "wasm32")] {
-                std::panic::set_hook(Box::new(console_error_panic_hook::hook));
-                console_log::init_with_level(log::Level::Debug).expect("Couldn't initialize logger");
+        // cfg_if::cfg_if! {
+        //     if #[cfg(target_arch = "wasm32")] {
+        //         std::panic::set_hook(Box::new(console_error_panic_hook::hook));
+        //         console_log::init_with_level(log::Level::Debug).expect("Couldn't initialize logger");
 
-                debug!("It works!");
-            } else {
-                env_logger::init();
-            }
-        }
+        //         debug!("It works!");
+        //     } else {
+        //         env_logger::init();
+        //     }
+        // }
         let window = Arc::new(
             event_loop
                 .create_window(
@@ -128,7 +128,8 @@ impl ApplicationHandler<UserEvent> for App {
 
             // Winit prevents sizing with CSS, so we have to set
             // the size manually when on web.
-            let _ = window.request_inner_size(PhysicalSize::new(768, 500));
+            window.set_min_inner_size(Some(PhysicalSize::new(768, 500)));
+            let x = window.request_inner_size(PhysicalSize::new(768, 500));
 
             let state_future = State::new(window.clone());
             let event_loop_proxy = self.event_loop_proxy.clone();
@@ -166,6 +167,7 @@ impl ApplicationHandler<UserEvent> for App {
         event: WindowEvent,
     ) {
         if let (Some(ref mut state), Some(player)) = (&mut self.state, self.player) {
+            // debug!("ZOO {:?}", state.window.inner_size());
             self.frames += 1;
             let current_time = self.start_time.elapsed();
             let delta_time = current_time - self.last_frame_time;

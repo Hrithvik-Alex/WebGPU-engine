@@ -262,12 +262,18 @@ impl OrthoUniform {
     }
 
     pub fn resize(&mut self, center: Vector3<f32>, width: f32, height: f32, zfar: f32, znear: f32) {
+        if width == 0. || height == 0. {
+            return;
+        }
         let mat = Self::calc(center, width, height, zfar, znear);
 
         // for some dame reason mat.is_invertible and mat.invert use different equal functions to check
         // if the det is 0, sigh. another reason to stop using cgmath. increasing number so really
         // small values dont get counted as 0
-        assert!((mat * 1000.).is_invertible()); // I want to know if this ever happens... lol
+        if !(mat * 1000.).is_invertible() {
+            debug!("{:?}", mat);
+            assert!(false); // I want to know if this ever happens... lol
+        }
         self.screen_to_clip = mat.into();
         self.clip_to_screen = mat.invert().unwrap().into();
     }

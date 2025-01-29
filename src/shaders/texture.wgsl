@@ -34,6 +34,8 @@ struct TextureInfo {
     normal: vec4<f32>,
 }
 
+/* disable_uniformity_analysis */
+
 fn get_texture_color(extra_info: u32, tex_coords: vec2<f32>) -> TextureInfo {
     var color: vec4<f32>;
     var normal: vec4<f32> = vec4(0.);
@@ -42,19 +44,19 @@ fn get_texture_color(extra_info: u32, tex_coords: vec2<f32>) -> TextureInfo {
     var has_normal = false;
     switch texture_num {
         case 0u: {
-            color = textureSample(t_character, pixel_sampler, tex_coords);
+            color = textureSampleLevel(t_character, pixel_sampler, tex_coords, 0.0);
             // normal = textureSample(n_character, pixel_sampler, tex_coords); 
             // has_normal = true;
         }
 
         case 1u: {
-            color = textureSample(t_minotaur, pixel_sampler, tex_coords);
+            color = textureSampleLevel(t_minotaur, pixel_sampler, tex_coords, 0.0);
             // normal = textureSample(n_minotaur, pixel_sampler, tex_coords);
             // has_normal = true;
         }
 
         case 2u: {
-            color = textureSample(t_bg1, pixel_sampler, tex_coords);
+            color = textureSampleLevel(t_bg1, pixel_sampler, tex_coords, 0.0);
             // color = vec4(0.1,0.1,0.1,1);
             // normal = vec4(0.,0,1,0);
             // has_normal = true;
@@ -62,7 +64,7 @@ fn get_texture_color(extra_info: u32, tex_coords: vec2<f32>) -> TextureInfo {
         }
 
         case 3u: {
-            color = textureSample(t_bg2, pixel_sampler, tex_coords);
+            color = textureSampleLevel(t_bg2, pixel_sampler, tex_coords, 0.0);
             // color = vec4(0.1,0.1,0.1,1);
             // normal = vec4(0.,0,1,0);
             // has_normal = true;
@@ -70,7 +72,7 @@ fn get_texture_color(extra_info: u32, tex_coords: vec2<f32>) -> TextureInfo {
         }
 
         case 4u: {
-            color = textureSample(t_bg3, pixel_sampler, tex_coords);
+            color = textureSampleLevel(t_bg3, pixel_sampler, tex_coords, 0.0);
             // color = vec4(0.1,0.1,0.1,1);
             // normal = vec4(0.,0,1,0);
             // has_normal = true;
@@ -78,7 +80,7 @@ fn get_texture_color(extra_info: u32, tex_coords: vec2<f32>) -> TextureInfo {
         }
 
         case 5u: {
-            color = textureSample(t_bg4, pixel_sampler, tex_coords);
+            color = textureSampleLevel(t_bg4, pixel_sampler, tex_coords, 0.0);
             // color = vec4(0.1,0.1,0.1,1);
             // normal = vec4(0.,0,1,0);
             // has_normal = true;
@@ -86,7 +88,7 @@ fn get_texture_color(extra_info: u32, tex_coords: vec2<f32>) -> TextureInfo {
         }
 
         case 6u: {
-            color = textureSample(t_signpost, pixel_sampler, tex_coords);
+            color = textureSampleLevel(t_signpost, pixel_sampler, tex_coords, 0.0);
             // color = vec4(0.1,0.1,0.1,1);
             // normal = vec4(0.,0,1,0);
             // has_normal = true;
@@ -94,7 +96,7 @@ fn get_texture_color(extra_info: u32, tex_coords: vec2<f32>) -> TextureInfo {
         }
 
         case 7u: {
-            color = textureSample(t_terrain, pixel_sampler, tex_coords);
+            color = textureSampleLevel(t_terrain, pixel_sampler, tex_coords, 0.0);
             // color = vec4(0.1,0.1,0.1,1);
             // normal = vec4(0.,0,1,0);
             // has_normal = true;

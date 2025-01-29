@@ -1,4 +1,5 @@
 use cgmath::SquareMatrix;
+use log::debug;
 use wgpu::util::DeviceExt;
 
 use crate::component::Component;
@@ -39,8 +40,14 @@ impl WorldUniform {
     }
 
     pub fn resize(&mut self, width: u32, height: u32) {
+        if width == 0 || height == 0 {
+            return;
+        }
         let mat = Self::calc(width, height);
-        assert!((mat * 1000.).is_invertible()); // I want to know if this ever happens... lol
+        if !(mat * 1000.).is_invertible() {
+            debug!("{:?}", mat);
+            assert!(false); // I want to know if this ever happens... lol
+        }
         self.world_to_screen = mat.into();
         self.screen_to_world = mat.invert().unwrap().into();
     }

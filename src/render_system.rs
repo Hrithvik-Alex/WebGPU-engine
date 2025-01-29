@@ -88,7 +88,7 @@ impl RenderSystem {
 
 
 
-    pub fn new(textures: &Vec<Arc<texture::Texture>>, context: &context::Context) -> Self {
+    pub fn new(textures: &Vec<Arc<texture::Texture>>, context: &context::Context, wgsl_preprocessor: &wgsl_preprocessor::WgslPreprocessor) -> Self {
         // debug!("{:?}", camera_buffer);
         // debug!("{:?}", world_buffer);
 
@@ -195,7 +195,7 @@ impl RenderSystem {
                 .device
                 .create_shader_module(wgpu::ShaderModuleDescriptor {
                     label: Some("standard shader"),
-                    source: wgpu::ShaderSource::Wgsl(wgsl_preprocessor::process("standard.wgsl").into()),
+                    source: wgpu::ShaderSource::Wgsl(wgsl_preprocessor.get_code("standard.wgsl".to_string()).into()),
                 });
         
         let collectible_shader: wgpu::ShaderModule =
@@ -203,7 +203,7 @@ impl RenderSystem {
                 .device
                 .create_shader_module(wgpu::ShaderModuleDescriptor {
                     label: Some("hover shader"),
-                    source: wgpu::ShaderSource::Wgsl(wgsl_preprocessor::process("hover.wgsl").into()),
+                    source: wgpu::ShaderSource::Wgsl(wgsl_preprocessor.get_code("hover.wgsl".to_string()).into()),
                 });
 
         let render_pipeline_layout =
@@ -242,14 +242,14 @@ impl RenderSystem {
         );
 
         let (wireframe_render_pipeline, wireframe_bind_group_layout) =
-            Self::create_wireframe_pipeline(context, &uniform_bind_group_layout);
+            Self::create_wireframe_pipeline(context, &uniform_bind_group_layout, wgsl_preprocessor);
 
 
         let post_standard_shader = context
             .device
             .create_shader_module(wgpu::ShaderModuleDescriptor {
                 label: Some("post standard shader"),
-                source: wgpu::ShaderSource::Wgsl(wgsl_preprocessor::process("post_standard.wgsl").into()),
+                source: wgpu::ShaderSource::Wgsl(wgsl_preprocessor.get_code("post_standard.wgsl".to_string()).into()),
             });
         let (post_standard_render_pipeline, post_standard_bind_group_layout) = Self::create_post_pipeline(context, &post_standard_shader);
 
@@ -257,7 +257,7 @@ impl RenderSystem {
             .device
             .create_shader_module(wgpu::ShaderModuleDescriptor {
                 label: Some("post popup shader"),
-                source: wgpu::ShaderSource::Wgsl(wgsl_preprocessor::process("post_popup.wgsl").into()),
+                source: wgpu::ShaderSource::Wgsl(wgsl_preprocessor.get_code("post_popup.wgsl".to_string()).into()),
             });
         let (post_popup_render_pipeline, post_popup_bind_group_layout) = Self::create_post_pipeline(context, &post_popup_shader);
 
@@ -265,10 +265,11 @@ impl RenderSystem {
             context,
             &uniform_bind_group_layout,
             &texture_bind_group_layout,
+            wgsl_preprocessor
         );
 
         let (stencil_compute_pipeline, stencil_compute_bind_group_layout) =
-            Self::create_stencil_compute_pipeline(context);
+            Self::create_stencil_compute_pipeline(context, wgsl_preprocessor);
 
         Self {
             orig_render_pipeline,
@@ -485,6 +486,8 @@ sprite_sheets: &Vec<Rc<RefCell<sprite::SpriteSheet>>>,
         gui_info: &gui::GuiInfo,
         game_mode: &mut game::GameMode
     ) -> Result<(), wgpu::SurfaceError> {
+
+            // debug!("BOO {:?}", window.inner_size());
         // let mut all_vertices: Vec<ModelVertex2d> = vec![];
         // let mut all_indices: Vec<u32> = vec![];
         let camera_buffer = camera.get_buffer(&context.device);
@@ -1123,12 +1126,13 @@ standard_pipeline_infos, sprite_sheets
 
     fn create_stencil_compute_pipeline(
         context: &context::Context,
+        wgsl_preprocessor: &wgsl_preprocessor::WgslPreprocessor
     ) -> (wgpu::ComputePipeline, wgpu::BindGroupLayout) {
         let shader = context
             .device
             .create_shader_module(wgpu::ShaderModuleDescriptor {
                 label: Some("Depth to Color Compute Shader"),
-                source: wgpu::ShaderSource::Wgsl(wgsl_preprocessor::process("compute.wgsl").into()),
+                source: wgpu::ShaderSource::Wgsl(wgsl_preprocessor.get_code("compute.wgsl".to_string()).into()),
             });
 
         // Create a bind group layout
@@ -1251,12 +1255,13 @@ standard_pipeline_infos, sprite_sheets
     fn create_wireframe_pipeline(
         context: &context::Context,
         uniform_bind_group_layout: &wgpu::BindGroupLayout,
+        wgsl_preprocessor: &wgsl_preprocessor::WgslPreprocessor
     ) -> (wgpu::RenderPipeline, wgpu::BindGroupLayout) {
         let wireframe_shader = context
             .device
             .create_shader_module(wgpu::ShaderModuleDescriptor {
                 label: Some("wireframe shader"),
-                source: wgpu::ShaderSource::Wgsl(wgsl_preprocessor::process("wireframe.wgsl").into()),
+                source: wgpu::ShaderSource::Wgsl(wgsl_preprocessor.get_code("wireframe.wgsl".to_string()).into()),
             });
 
         let bind_group_layout =
@@ -1382,13 +1387,14 @@ standard_pipeline_infos, sprite_sheets
         context: &context::Context,
         uniform_bind_group_layout: &wgpu::BindGroupLayout,
         texture_bind_group_layout: &wgpu::BindGroupLayout,
+        wgsl_preprocessor: &wgsl_preprocessor::WgslPreprocessor
     ) -> wgpu::RenderPipeline {
         let debug_shader: wgpu::ShaderModule =
             context
                 .device
                 .create_shader_module(wgpu::ShaderModuleDescriptor {
                     label: Some("outline"),
-                    source: wgpu::ShaderSource::Wgsl(wgsl_preprocessor::process("outline.wgsl").into()),
+                    source: wgpu::ShaderSource::Wgsl(wgsl_preprocessor.get_code("outline.wgsl".to_string()).into()),
                 });
 
         let render_pipeline_layout =
