@@ -84,7 +84,7 @@ impl<'a> State<'a> {
 
         let gui = gui::Gui::new(
             &context.device,
-            context.config.format,
+            context.config.format.add_srgb_suffix(),
             None,
             1,
             window.clone(),

@@ -28,6 +28,7 @@ use log::debug;
 
 use physics::ColliderBoxComponent;
 use state::State;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread::current;
 use std::time::Duration;
@@ -40,6 +41,8 @@ use winit::event_loop::EventLoopProxy;
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
+
+static SHOULD_EXIT: AtomicBool = AtomicBool::new(false);
 
 enum UserEvent {
     StateReady(state::State<'static>, Arc<Window>),
@@ -57,6 +60,7 @@ pub struct App {
     seconds_elapsed: u64,
     last_frame_time: Duration,
     ticks_elapsed: Duration,
+    resources: Vec<Box<dyn std::fmt::Debug>>,
 }
 
 impl App {
@@ -79,6 +83,7 @@ impl App {
             seconds_elapsed,
             last_frame_time,
             ticks_elapsed,
+            resources: vec![],
         }
     }
 
@@ -113,28 +118,52 @@ impl ApplicationHandler<UserEvent> for App {
 
         #[cfg(target_arch = "wasm32")]
         {
+            use gloo_timers::future::TimeoutFuture;
             use web_sys::Element;
             use winit::{dpi::PhysicalSize, platform::web::WindowExtWebSys};
-
             web_sys::window()
                 .and_then(|win| win.document())
                 .and_then(|doc| {
                     let dst = doc.get_element_by_id("wasm-game")?;
-                    let canvas = Element::from(window.canvas()?);
-                    dst.append_child(&canvas).ok()?;
+                    let canvas = window.canvas()?;
+                    let resize_callback = Closure::<dyn Fn()>::new({
+                        let canvas = canvas.clone();
+                        let target = dst.clone();
+                        let window = window.clone();
+                        move || {
+                            let max_width = target.client_width();
+                            let max_height = target.client_height();
+
+                            debug!("SET THAT BOIIIII {:?} {:?}", max_width, max_height);
+                            canvas.set_height(max_height as u32);
+                            canvas.set_width(max_width as u32);
+                            window.request_inner_size(PhysicalSize::new(max_width, max_height));
+                            // let _ = force_resize_event_tx.send(real_size);
+                        }
+                    });
+                    let resize_observer =
+                        web_sys::ResizeObserver::new(resize_callback.as_ref().unchecked_ref())
+                            .unwrap();
+                    resize_observer.observe(&dst);
+                    dst.append_child(&Element::from(canvas)).ok()?;
+                    self.resources.push(Box::new(resize_observer));
+                    self.resources.push(Box::new(resize_callback));
                     Some(())
                 })
                 .expect("Couldn't append canvas to document body.");
 
-            // Winit prevents sizing with CSS, so we have to set
-            // the size manually when on web.
-            window.set_min_inner_size(Some(PhysicalSize::new(768, 500)));
-            let x = window.request_inner_size(PhysicalSize::new(768, 500));
-
             let state_future = State::new(window.clone());
             let event_loop_proxy = self.event_loop_proxy.clone();
 
+            // let (width, height) = (canvas.client_width(), canvas.client_height());
+
+            // let factor = window.scale_factor();
+            // let logical = LogicalSize { width, height };
+            // let size = logical.to_physical(factor);
+
             let state = async move {
+                let _ = window.request_inner_size(PhysicalSize::new(768, 500));
+                TimeoutFuture::new(500).await;
                 let state = state_future.await;
                 assert!(event_loop_proxy
                     .send_event(UserEvent::StateReady(state, window.clone()))
@@ -167,12 +196,15 @@ impl ApplicationHandler<UserEvent> for App {
         event: WindowEvent,
     ) {
         if let (Some(ref mut state), Some(player)) = (&mut self.state, self.player) {
-            // debug!("ZOO {:?}", state.window.inner_size());
+            // debug!("ZOO {:?}", state.window.inner_size()))
+            let size = state.window.inner_size();
+
             self.frames += 1;
             let current_time = self.start_time.elapsed();
             let delta_time = current_time - self.last_frame_time;
             if current_time > Duration::new(self.seconds_elapsed + 1, 0) {
                 self.last_fps = self.frames;
+                #[cfg(not(target_arch = "wasm32"))]
                 debug!("FPS {:?}", self.last_fps);
                 self.frames = 0;
                 self.seconds_elapsed += 1;
@@ -239,11 +271,16 @@ impl ApplicationHandler<UserEvent> for App {
             //     .sprite
             //     .update_sheet_position(idle_anim.get_sheet_index());
 
-            let textures = state.textures();
+            if SHOULD_EXIT.load(Ordering::SeqCst) {
+                event_loop.exit()
+            }
             if window_id == state.window.id() {
                 match event {
                     WindowEvent::CloseRequested => event_loop.exit(),
-                    WindowEvent::Resized(physical_size) => state.resize(physical_size),
+                    WindowEvent::Resized(physical_size) => {
+                        debug!("I BE RESIZING BROOOOO");
+                        state.resize(physical_size)
+                    }
 
                     WindowEvent::RedrawRequested => {
                         let render_result = state.render_system.render(
@@ -313,7 +350,7 @@ impl ApplicationHandler<UserEvent> for App {
         }
     }
 }
-#[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen(js_name = start))]
 pub fn run() {
     let env_filter = EnvFilter::builder()
         .with_default_directive(tracing::Level::DEBUG.into())
@@ -327,7 +364,7 @@ pub fn run() {
         console_error_panic_hook::set_once();
         let wasm_layer = WASMLayer::new(WASMLayerConfig::default());
 
-        subscriber.with(wasm_layer).init();
+        subscriber.with(wasm_layer).try_init();
     }
     #[cfg(not(target_arch = "wasm32"))]
     {
@@ -336,6 +373,23 @@ pub fn run() {
     }
 
     let event_loop = EventLoop::with_user_event().build().unwrap();
-    let mut app = App::new(&event_loop);
-    event_loop.run_app(&mut app).unwrap();
+    let app: &'static mut App = Box::leak(Box::new(App::new(&event_loop)));
+    #[cfg(target_arch = "wasm32")]
+    {
+        use winit::platform::web::EventLoopExtWebSys;
+        event_loop.spawn_app(app);
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        event_loop.run_app(app).unwrap();
+    }
+
+    debug!("DONE")
+}
+
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen(js_name = stop))]
+pub fn stop() {
+    debug!("QUITTING");
+    SHOULD_EXIT.store(true, Ordering::SeqCst);
 }

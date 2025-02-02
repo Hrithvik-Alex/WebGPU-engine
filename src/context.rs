@@ -19,7 +19,8 @@ impl<'a> Component for Context<'a> {
 
 impl<'a> Context<'a> {
     pub async fn new(window: Arc<Window>) -> Self {
-        let size = window.inner_size();
+        let size: PhysicalSize<u32> = window.inner_size();
+
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
             #[cfg(not(target_arch = "wasm32"))]
             backends: wgpu::Backends::PRIMARY,
@@ -68,12 +69,12 @@ impl<'a> Context<'a> {
         debug!("{:?}", surface_format);
         let config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_DST,
-            format: surface_format,
+            format: surface_format.remove_srgb_suffix(),
             width: size.width,
             height: size.height,
             present_mode: wgpu::PresentMode::Fifo,
             alpha_mode: surface_caps.alpha_modes[0],
-            view_formats: vec![],
+            view_formats: vec![surface_format.add_srgb_suffix()],
             desired_maximum_frame_latency: 2,
         };
 

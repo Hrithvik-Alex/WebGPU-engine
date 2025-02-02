@@ -87,7 +87,6 @@ impl RenderSystem {
     const AMBIENT_LIGHT_INTENSITY : f32 = 0.5;
 
 
-
     pub fn new(textures: &Vec<Arc<texture::Texture>>, context: &context::Context, wgsl_preprocessor: &wgsl_preprocessor::WgslPreprocessor) -> Self {
         // debug!("{:?}", camera_buffer);
         // debug!("{:?}", world_buffer);
@@ -487,6 +486,8 @@ sprite_sheets: &Vec<Rc<RefCell<sprite::SpriteSheet>>>,
         game_mode: &mut game::GameMode
     ) -> Result<(), wgpu::SurfaceError> {
 
+        let size = window.inner_size();
+
             // debug!("BOO {:?}", window.inner_size());
         // let mut all_vertices: Vec<ModelVertex2d> = vec![];
         // let mut all_indices: Vec<u32> = vec![];
@@ -642,8 +643,10 @@ standard_pipeline_infos, sprite_sheets
         let output = context.surface.get_current_texture()?;
 
         let surface_tex = &output.texture;
-        let surface_view = surface_tex.create_view(&wgpu::TextureViewDescriptor::default());
-
+        let surface_view = surface_tex.create_view(&wgpu::TextureViewDescriptor {
+            format: Some(context.config.format.add_srgb_suffix()),
+            ..Default::default()
+        });
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Original Render Pass"),
@@ -1215,7 +1218,7 @@ standard_pipeline_infos, sprite_sheets
                     module: &shader,
                     entry_point: "fs_main",
                     targets: &[Some(wgpu::ColorTargetState {
-                        format: context.config.format,
+                        format: context.config.format.add_srgb_suffix(),
                         blend: Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING),
                         write_mask: wgpu::ColorWrites::ALL,
                     })],

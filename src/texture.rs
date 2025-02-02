@@ -44,7 +44,7 @@ impl TextureBasic {
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
-            format: config.format,
+            format: config.format.add_srgb_suffix(),
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT
                 | wgpu::TextureUsages::TEXTURE_BINDING
                 | wgpu::TextureUsages::COPY_SRC,
@@ -193,6 +193,7 @@ impl Texture {
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
+            // TODO: potentially use config.format?
             format: wgpu::TextureFormat::Rgba8UnormSrgb,
             usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
             view_formats: &[],
@@ -214,7 +215,12 @@ impl Texture {
             size,
         );
 
-        let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let view = texture.create_view(&wgpu::TextureViewDescriptor {
+            format: Some(wgpu::TextureFormat::Rgba8UnormSrgb),
+            ..Default::default()
+        });
+
+        // let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
 
         // let layout_entry = wgpu::BindGroupLayoutEntry {
         //     binding: bind_group_layout_index,
