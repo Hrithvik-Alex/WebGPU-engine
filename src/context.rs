@@ -66,7 +66,6 @@ impl<'a> Context<'a> {
             .find(|format| format.is_srgb())
             .copied()
             .unwrap_or(surface_caps.formats[0]);
-        debug!("{:?}", surface_format);
         let config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_DST,
             format: surface_format.remove_srgb_suffix(),

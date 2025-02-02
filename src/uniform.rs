@@ -44,10 +44,8 @@ impl WorldUniform {
             return;
         }
         let mat = Self::calc(width, height);
-        if !(mat * 1000.).is_invertible() {
-            debug!("{:?}", mat);
-            assert!(false); // I want to know if this ever happens... lol
-        }
+        assert!((mat * 1000.).is_invertible());
+
         self.world_to_screen = mat.into();
         self.screen_to_world = mat.invert().unwrap().into();
     }

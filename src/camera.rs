@@ -1,13 +1,11 @@
 use cgmath::*;
-use log::debug;
-use num_traits::{clamp, clamp_max, clamp_min};
+use num_traits::{clamp_max, clamp_min};
 // use std::f32::consts::FRAC_PI_2;
 // use log::debug;
 use wgpu::util::DeviceExt;
 
 use crate::{
-    component::{self, EntityMap, ParallaxComponent},
-    context,
+    component::{self, EntityMap},
     uniform::WorldUniform,
     utils,
 };
@@ -270,10 +268,8 @@ impl OrthoUniform {
         // for some dame reason mat.is_invertible and mat.invert use different equal functions to check
         // if the det is 0, sigh. another reason to stop using cgmath. increasing number so really
         // small values dont get counted as 0
-        if !(mat * 1000.).is_invertible() {
-            debug!("{:?}", mat);
-            assert!(false); // I want to know if this ever happens... lol
-        }
+        assert!((mat * 1000.).is_invertible());
+
         self.screen_to_clip = mat.into();
         self.clip_to_screen = mat.invert().unwrap().into();
     }
@@ -340,7 +336,7 @@ impl OrthographicCamera {
             .resize(self.center, self.width, self.height, self.zfar, self.znear);
     }
 
-    pub fn update_position_delta(&mut self, position: Vector3<f32>) {
+    pub fn _update_position_delta(&mut self, position: Vector3<f32>) {
         self.center += position;
         self.uniform
             .resize(self.center, self.width, self.height, self.zfar, self.znear);
@@ -386,7 +382,7 @@ impl CameraController {
         let original_position =
             cgmath::Vector2::new(camera.width as f32 / 2.0, camera.height as f32 / 2.0);
 
-        let mut update_parallax = |dir: cgmath::Vector2<f32>, camera: &mut OrthographicCamera| {
+        let mut update_parallax = |_: cgmath::Vector2<f32>, camera: &mut OrthographicCamera| {
             utils::zip3_entities_mut(
                 parallax_components,
                 vertex_array_components,

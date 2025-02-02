@@ -18,6 +18,7 @@ pub fn zip3_entities_mut<'a, T, U, V>(
         .map(|(((entity, a_i), (_, b_i)), (_, c_i))| (entity, a_i, b_i, c_i))
 }
 
+#[allow(unused)]
 pub fn zip3_entities_1immut<'a, T, U, V>(
     a: &'a mut EntityMap<T>,
     b: &'a mut EntityMap<U>,

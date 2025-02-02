@@ -1,7 +1,5 @@
 use anyhow::*;
 use image::GenericImageView;
-use log::debug;
-use wgpu::BindGroupLayoutEntry;
 
 // TODO: refactor/consolidate?
 pub struct TextureBasic {
@@ -220,23 +218,6 @@ impl Texture {
             ..Default::default()
         });
 
-        // let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-
-        // let layout_entry = wgpu::BindGroupLayoutEntry {
-        //     binding: bind_group_layout_index,
-        //     visibility: wgpu::ShaderStages::FRAGMENT,
-        //     ty: wgpu::BindingType::Texture {
-        //         multisampled: false,
-        //         view_dimension: wgpu::TextureViewDimension::D2,
-        //         sample_type: wgpu::TextureSampleType::Float { filterable: true },
-        //     },
-        //     count: None,
-        // };
-        // let layout = wgpu::BindGroupEntry {
-        //     binding: 0,
-        //     resource: wgpu::BindingResource::TextureView(&view),
-        // };
-
         (texture, view, dimensions)
     }
 
@@ -266,10 +247,6 @@ impl Texture {
         };
         normal_dimensions.map(|normal_dimensions| {
             if dimensions != normal_dimensions {
-                debug!("{:?}", label);
-                debug!("{:?}", dimensions);
-                debug!("{:?}", normal_dimensions);
-
                 assert!(dimensions == normal_dimensions)
             }
         });

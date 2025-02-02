@@ -1,6 +1,6 @@
 use crate::{
-    component::{self, Entity, EntityMap},
-    physics, state, utils,
+    component::{self, EntityMap},
+    physics, utils,
 };
 
 pub struct PlatformerGameState {

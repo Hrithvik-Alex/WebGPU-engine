@@ -17,13 +17,10 @@ use crate::wgsl_preprocessor;
 use lazy_static::lazy_static;
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::fs;
 use std::rc::Rc;
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
-use log::debug;
-use wgpu::naga::compact;
 use winit::window::Window;
 
 lazy_static! {
@@ -79,7 +76,6 @@ impl<'a> State<'a> {
 
     pub async fn new(window: Arc<Window>) -> State<'a> {
         let size = window.inner_size();
-        debug!("{:?}", size);
         let context: context::Context<'a> = context::Context::new(window.clone()).await;
 
         let gui = gui::Gui::new(
@@ -310,6 +306,7 @@ impl<'a> State<'a> {
             y: 180. / 324.,
         };
 
+        #[allow(unused)]
         let bg1 = {
             let position_component = component::PositionComponent {
                 position: cgmath::Vector2::new(
@@ -353,6 +350,7 @@ impl<'a> State<'a> {
             )
         };
 
+        #[allow(unused)]
         let bg2 = {
             let position_component = component::PositionComponent {
                 position: cgmath::Vector2::new(
@@ -396,6 +394,7 @@ impl<'a> State<'a> {
             )
         };
 
+        #[allow(unused)]
         let bg3 = {
             let position_component = component::PositionComponent {
                 position: cgmath::Vector2::new(
@@ -439,6 +438,7 @@ impl<'a> State<'a> {
             )
         };
 
+        #[allow(unused)]
         let bg4 = {
             let position_component = component::PositionComponent {
                 position: cgmath::Vector2::new(
@@ -482,6 +482,7 @@ impl<'a> State<'a> {
             )
         };
 
+        #[allow(unused)]
         let tiles = {
             let mut create_tile = |position, scale, moving_platform_component| {
                 let position_component = component::PositionComponent { position, scale };
@@ -638,6 +639,7 @@ impl<'a> State<'a> {
             );
         };
 
+        #[allow(unused)]
         let light = {
             let position_component = component::PositionComponent {
                 position: cgmath::Vector2::new(100., -500.),
@@ -781,9 +783,9 @@ impl<'a> State<'a> {
                 .insert(component::CharacterState::MOVE, sprite_animation_run);
             sprite_animation_controller
                 .animation_map
-                .insert(component::CharacterState::JUMP_UP, sprite_animation_jump_up);
+                .insert(component::CharacterState::JUMPUP, sprite_animation_jump_up);
             sprite_animation_controller.animation_map.insert(
-                component::CharacterState::JUMP_DOWN,
+                component::CharacterState::JUMPDOWN,
                 sprite_animation_jump_down,
             );
             // sprite_animation_controller
@@ -825,6 +827,7 @@ impl<'a> State<'a> {
             )
         };
 
+        #[allow(unused)]
         let signpost = {
             let position_component = component::PositionComponent {
                 position: cgmath::Vector2::new(248., 120.),
@@ -866,6 +869,7 @@ impl<'a> State<'a> {
             )
         };
 
+        #[allow(unused)]
         let scrolls = {
             let mut create_scroll = |position_component: component::PositionComponent,
                                      text: &'static str| {
@@ -1023,14 +1027,6 @@ impl<'a> State<'a> {
         //     None)
         // };
 
-        debug!("{:?}", self.vertex_array_components);
-        // debug!(
-        //     "{:?}",
-        //     // self.camera.get_matrix() *
-        //     self.world_uniform.calc(self.size.width, self.size.height)
-        //         * cgmath::vec4(100., 300., 0.5, 1.)
-        // );
-
         character
     }
 
@@ -1112,11 +1108,7 @@ impl<'a> State<'a> {
         // self.entities.
     }
 
-    pub fn window(&self) -> &Window {
-        &self.window
-    }
     pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
-        debug!("{:?}", new_size);
         if new_size.width > 0 && new_size.height > 0 {
             self.size = new_size;
             self.context.resize(new_size);

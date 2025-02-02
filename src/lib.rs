@@ -19,24 +19,21 @@ use egui_winit::winit;
 use egui_winit::winit::{
     event::*,
     event_loop::{ActiveEventLoop, EventLoop},
-    keyboard::{KeyCode, PhysicalKey},
-    window::{Theme, Window, WindowAttributes, WindowId},
+    window::{Window, WindowId},
 };
 
 use instant::Instant;
 use log::debug;
 
-use physics::ColliderBoxComponent;
+use render_system::RenderOptions;
 use state::State;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
-use std::thread::current;
+use std::sync::Arc;
 use std::time::Duration;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::EnvFilter;
 use winit::application::ApplicationHandler;
-use winit::event;
 use winit::event_loop::EventLoopProxy;
 
 #[cfg(target_arch = "wasm32")]
@@ -44,7 +41,7 @@ use wasm_bindgen::prelude::*;
 
 static SHOULD_EXIT: AtomicBool = AtomicBool::new(false);
 
-enum UserEvent {
+pub enum UserEvent {
     StateReady(state::State<'static>, Arc<Window>),
 }
 
@@ -53,6 +50,7 @@ pub struct App {
     state: Option<state::State<'static>>,
     event_loop_proxy: EventLoopProxy<UserEvent>,
     player: Option<component::Entity>,
+    render_options: RenderOptions,
 
     last_fps: u32,
     frames: u32,
@@ -60,6 +58,7 @@ pub struct App {
     seconds_elapsed: u64,
     last_frame_time: Duration,
     ticks_elapsed: Duration,
+    #[cfg(target_arch = "wasm32")]
     resources: Vec<Box<dyn std::fmt::Debug>>,
 }
 
@@ -72,7 +71,13 @@ impl App {
 
         let ticks_elapsed = Duration::new(0, 0);
 
+        let render_options = RenderOptions {
+            finaize_to_stencil: false,
+            render_outline: false,
+            render_wireframe: false,
+        };
         Self {
+            render_options,
             window: None,
             state: None,
             event_loop_proxy: event_loop.create_proxy(),
@@ -83,6 +88,7 @@ impl App {
             seconds_elapsed,
             last_frame_time,
             ticks_elapsed,
+            #[cfg(target_arch = "wasm32")]
             resources: vec![],
         }
     }
@@ -97,16 +103,6 @@ impl App {
 
 impl ApplicationHandler<UserEvent> for App {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-        // cfg_if::cfg_if! {
-        //     if #[cfg(target_arch = "wasm32")] {
-        //         std::panic::set_hook(Box::new(console_error_panic_hook::hook));
-        //         console_log::init_with_level(log::Level::Debug).expect("Couldn't initialize logger");
-
-        //         debug!("It works!");
-        //     } else {
-        //         env_logger::init();
-        //     }
-        // }
         let window = Arc::new(
             event_loop
                 .create_window(
@@ -134,7 +130,6 @@ impl ApplicationHandler<UserEvent> for App {
                             let max_width = target.client_width();
                             let max_height = target.client_height();
 
-                            debug!("SET THAT BOIIIII {:?} {:?}", max_width, max_height);
                             canvas.set_height(max_height as u32);
                             canvas.set_width(max_width as u32);
                             window.request_inner_size(PhysicalSize::new(max_width, max_height));
@@ -184,7 +179,7 @@ impl ApplicationHandler<UserEvent> for App {
         }
     }
 
-    fn user_event(&mut self, event_loop: &ActiveEventLoop, event: UserEvent) {
+    fn user_event(&mut self, _: &ActiveEventLoop, event: UserEvent) {
         let UserEvent::StateReady(state, window) = event;
         self.init_state(state, window);
     }
@@ -196,9 +191,6 @@ impl ApplicationHandler<UserEvent> for App {
         event: WindowEvent,
     ) {
         if let (Some(ref mut state), Some(player)) = (&mut self.state, self.player) {
-            // debug!("ZOO {:?}", state.window.inner_size()))
-            let size = state.window.inner_size();
-
             self.frames += 1;
             let current_time = self.start_time.elapsed();
             let delta_time = current_time - self.last_frame_time;
@@ -277,22 +269,18 @@ impl ApplicationHandler<UserEvent> for App {
             if window_id == state.window.id() {
                 match event {
                     WindowEvent::CloseRequested => event_loop.exit(),
-                    WindowEvent::Resized(physical_size) => {
-                        debug!("I BE RESIZING BROOOOO");
-                        state.resize(physical_size)
-                    }
+                    WindowEvent::Resized(physical_size) => state.resize(physical_size),
 
                     WindowEvent::RedrawRequested => {
                         let render_result = state.render_system.render(
+                            self.render_options,
                             &state.position_components,
                             &state.vertex_array_components,
                             &state.light_components,
                             &state.metadata_components,
-                            &state.sprite_sheets,
                             &state.context,
                             &mut state.gui,
                             state.window.clone(),
-                            false,
                             current_time,
                             &state.world_uniform,
                             &state.camera,
@@ -369,7 +357,7 @@ pub fn run() {
     #[cfg(not(target_arch = "wasm32"))]
     {
         let fmt_layer = tracing_subscriber::fmt::Layer::default();
-        subscriber.with(fmt_layer).try_init();
+        let _ = subscriber.with(fmt_layer).try_init();
     }
 
     let event_loop = EventLoop::with_user_event().build().unwrap();
@@ -384,12 +372,9 @@ pub fn run() {
     {
         event_loop.run_app(app).unwrap();
     }
-
-    debug!("DONE")
 }
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(js_name = stop))]
 pub fn stop() {
-    debug!("QUITTING");
     SHOULD_EXIT.store(true, Ordering::SeqCst);
 }

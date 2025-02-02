@@ -1,10 +1,9 @@
-use std::{f64, time::Duration};
+use std::f64;
 
 use cgmath::ElementWise;
-use log::debug;
 use slotmap::DenseSlotMap;
 
-use crate::{physics, utils::zip3_entities_mut};
+use crate::physics;
 
 pub type Entity = slotmap::DefaultKey;
 pub type EntityMap<T> = DenseSlotMap<Entity, Option<T>>;
@@ -143,14 +142,7 @@ impl Component for PositionComponent {
 impl PositionComponent {
     pub fn scale_outward(&mut self, scale: cgmath::Vector2<f32>) {
         assert!(scale.x >= 1. && scale.y >= 1.);
-        let old_scale = self.scale;
         self.scale = self.scale.mul_element_wise(scale);
-        // let old_position = self.position;
-        // self.position = self.position - (self.scale - old_scale) / 2.;
-        // debug!(
-        //     "{:?} {:?} {:?} {:?}",
-        //     old_scale, self.scale, old_position, self.position
-        // );
     }
 }
 
@@ -159,8 +151,8 @@ pub enum CharacterState {
     IDLE,
     MOVE,
     ATTACK,
-    JUMP_UP,
-    JUMP_DOWN,
+    JUMPUP,
+    JUMPDOWN,
 }
 
 #[derive(Debug)]
@@ -211,9 +203,9 @@ impl MetadataComponent {
             flags |= 2;
         }
 
-        flags |= (1 << 2);
+        flags |= 1 << 2;
 
-        flags |= (1 << 3);
+        flags |= 1 << 3;
 
         Self { flags }
     }
@@ -227,8 +219,8 @@ impl MetadataComponent {
     }
 
     pub fn set_jump(&mut self, jump_available: bool) {
-        if (jump_available) {
-            self.flags |= (1 << 2)
+        if jump_available {
+            self.flags |= 1 << 2
         } else {
             self.flags &= !(1 << 2)
         }

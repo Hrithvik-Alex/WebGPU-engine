@@ -1,22 +1,19 @@
-use std::fs::read_to_string;
 use std::sync::Arc;
 
 use bytemuck::Zeroable;
 use cgmath::num_traits::{clamp, clamp_max, clamp_min};
 use egui::epaint::Shadow;
 use egui::{
-    frame, include_image, Align2, Color32, ColorImage, Context, FontId, Frame, Pos2, Rect,
-    RichText, Rounding, Stroke, TextureHandle, TextureOptions, Ui, Vec2, Visuals,
+    Align2, Color32, ColorImage, Context, FontId, Pos2, Rect, RichText, Rounding, Stroke,
+    TextureHandle, TextureOptions, Vec2, Visuals,
 };
 use egui_wgpu::Renderer;
 use egui_wgpu::ScreenDescriptor;
 
 use egui_wgpu::wgpu;
-use egui_wgpu::wgpu::{CommandEncoder, Device, Queue, TextureFormat, TextureView};
-use egui_winit::winit::event::WindowEvent;
+use egui_wgpu::wgpu::{CommandEncoder, Device, TextureFormat, TextureView};
 use egui_winit::winit::window::Window;
 use egui_winit::State;
-use log::debug;
 
 use crate::{context, game};
 
@@ -150,14 +147,10 @@ impl Gui {
         // self.state.set_pixels_per_point(window.scale_factor() as f32);
         let raw_input = self.state.take_egui_input(&window);
         let full_output = self.context.run(raw_input, |ctx| {
-            egui::Area::new(egui::Id::new("title"))
-                .movable(false)
-                .anchor(Align2::CENTER_TOP, [0.0, 10.0])
-                .show(&ctx, |mut ui| ui.label("Halex"));
-            // egui::Label::new("Halex").show(ctx, |ui| {
-            //     ui.label("Halex")
-            //     // .background_color(Color32::from_black_alpha(0));
-            // });
+            // egui::Area::new(egui::Id::new("title"))
+            //     .movable(false)
+            //     .anchor(Align2::CENTER_TOP, [0.0, 10.0])
+            //     .show(&ctx, |mut ui| ui.label("Halex"));
 
             let scrolll = egui::Image::new((self.scroll_image.id(), self.scroll_image.size_vec2()))
                 .fit_to_exact_size(Vec2 { x: 64., y: 64. })
@@ -166,11 +159,6 @@ impl Gui {
             match *game_mode {
                 game::GameMode::POPUP => {
                     let popup_size = egui::vec2(rect.x, rect.y); // Desired popup size
-
-                    // debug!(
-                    //     "{:?} {:?} {:?}",
-                    //     rect.y, self.scroll_content_size, self.scroll_offset.y
-                    // );
 
                     let scroll_top_margin = clamp_min(30. - self.scroll_offset.y, 5.);
                     let scroll_bot_margin = clamp(
@@ -181,8 +169,6 @@ impl Gui {
                         0.,
                         30.,
                     );
-
-                    // debug!("{:?} {:?}", scroll_top_margin, scroll_bot_margin);
 
                     // .fit_to_exact_size(popup_size);
                     // .maintain_aspect_ratio(true);
@@ -303,7 +289,7 @@ impl Gui {
                     egui::Area::new(egui::Id::new("popup controls"))
                         .movable(false)
                         .anchor(Align2::RIGHT_TOP, [-10.0, 10.0])
-                        .show(&ctx, |mut ui| {
+                        .show(&ctx, |ui| {
                             ui.horizontal(|ui| {
                                 ui.label("ESC");
                                 ui.label("to close");
@@ -316,7 +302,7 @@ impl Gui {
                     egui::Area::new(egui::Id::new("collectible info"))
                         .movable(false)
                         .anchor(Align2::LEFT_BOTTOM, [10.0, -10.0])
-                        .show(&ctx, |mut ui| {
+                        .show(&ctx, |ui| {
                             ui.horizontal(|ui| {
                                 ui.add(scrolll);
 
@@ -338,15 +324,9 @@ impl Gui {
             //     .resizable(true)
             //     .anchor(Align2::LEFT_TOP, [0.0, 0.0])
             //     .show(&ctx, |mut ui| {
-            //         // if ui.add(egui::Button::new("Click me")).clicked() {
-            //         //     debug!("PRESSED")
-            //         // }
-
             //         ui.label(format!("FPS: {}", info.fps));
-            //         // ui.add(egui::Slider::new(_, 0..=120).text("age"));
             //         ui.end_row();
 
-            //         // proto_scene.egui(ui);
             //     });
         });
 

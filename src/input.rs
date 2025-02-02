@@ -1,11 +1,8 @@
 use crate::{
-    component::{self, CharacterStateComponent, PositionComponent},
+    component::{self, PositionComponent},
     game, gui, utils,
 };
 
-use std::time::Duration;
-
-use log::debug;
 use winit::{
     dpi::PhysicalPosition,
     event::*,

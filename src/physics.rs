@@ -1,13 +1,12 @@
 use std::time::Duration;
 
 use cgmath::{Vector2, Zero};
-use log::debug;
 
 use crate::{
     component::{self, Component, EntityMap, PositionComponent},
     game,
     input::InputHandler,
-    state, utils,
+    utils,
 };
 
 pub struct BoundingBox {
@@ -201,13 +200,12 @@ impl PhysicsSystem {
                 if metadata_component.is_controllable() {
                     if input_handler.up_pressed {
                         if metadata_component.can_jump() {
-                            debug!("JUMPY BOI");
                             metadata_component.set_jump(false);
                             physics_component.velocity.y = Self::JUMP_VELOCITY;
                             physics_component.acceleration.y = -1. * Self::JUMP_ACCELERATION;
                             if let Some(character_state_component) = character_state_component {
                                 character_state_component.character_state =
-                                    component::CharacterState::JUMP_UP;
+                                    component::CharacterState::JUMPUP;
                             }
                         }
                     }
@@ -230,8 +228,8 @@ impl PhysicsSystem {
                 let delta = physics_component.velocity * tick_secs;
                 let mut delta_add = delta;
 
-                if (*physics_component == PhysicsComponent::new()
-                    && !metadata_component.is_controllable())
+                if *physics_component == PhysicsComponent::new()
+                    && !metadata_component.is_controllable()
                 {
                     return cgmath::Vector2::zero();
                 }
@@ -261,23 +259,23 @@ impl PhysicsSystem {
                     Vector2::zero(),
                     |mut collision_dir,
                      (e2, collectible, sign_component, moving_platform, box2)| {
-                        if (e1 != e2) {
+                        if e1 != e2 {
                             box2.as_ref().map(|box2| {
                                 let (direction, scale) = Self::get_collision_delta(
                                     &new_collision_box.bounding_box,
                                     &box2.bounding_box,
                                 );
-                                if (Self::is_colliding(
+                                if Self::is_colliding(
                                     &new_collision_box.bounding_box,
                                     &box2.bounding_box,
-                                )) {
+                                ) {
                                     collision_dir += direction * scale;
                                 }
 
-                                if (Self::is_touching(
+                                if Self::is_touching(
                                     &new_collision_box.bounding_box,
                                     &box2.bounding_box,
-                                )) {
+                                ) {
                                     if direction == (Vector2::unit_y() * -1.) {
                                         is_grounded = true;
 
@@ -310,7 +308,7 @@ impl PhysicsSystem {
                     },
                 );
 
-                if (is_grounded) {
+                if is_grounded {
                     if physics_component.last_grounded_time.is_some() {
                         physics_component.last_grounded_time = None;
                     }
@@ -319,7 +317,7 @@ impl PhysicsSystem {
                     physics_component.acceleration.y = 0.;
                     physics_component.velocity.y = 0.;
                 } else {
-                    if (physics_component.last_grounded_time.is_none()) {
+                    if physics_component.last_grounded_time.is_none() {
                         physics_component.last_grounded_time = Some(current_time);
                     }
 
@@ -333,7 +331,7 @@ impl PhysicsSystem {
                     }
                 }
 
-                if (physics_component.last_grounded_time.is_none() && !is_grounded) {
+                if physics_component.last_grounded_time.is_none() && !is_grounded {
                     physics_component.last_grounded_time = Some(current_time);
                 } else if physics_component.last_grounded_time.is_some() && is_grounded {
                     physics_component.last_grounded_time = None;
@@ -358,10 +356,10 @@ impl PhysicsSystem {
                 if let Some(character_state_component) = character_state_component {
                     if !metadata_component.can_jump() && delta_add.y < 0. {
                         character_state_component.character_state =
-                            component::CharacterState::JUMP_DOWN;
+                            component::CharacterState::JUMPDOWN;
                     } else if !metadata_component.can_jump() && delta_add.y > 0. {
                         character_state_component.character_state =
-                            component::CharacterState::JUMP_UP;
+                            component::CharacterState::JUMPUP;
                     } else if delta_add == cgmath::Vector2::zero() {
                         character_state_component.character_state = component::CharacterState::IDLE;
                     } else if delta_add.x != 0. {
