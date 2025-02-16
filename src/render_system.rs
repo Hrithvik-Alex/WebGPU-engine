@@ -14,6 +14,8 @@ use crate::uniform;
 use crate::uniform::LightUniform;
 use crate::utils;
 use crate::wgsl_preprocessor;
+use cgmath::num_traits::clamp;
+use cgmath::num_traits::clamp_min;
 use cgmath::ElementWise;
 
 use cgmath::Vector2;
@@ -28,13 +30,13 @@ use wgpu::StencilState;
 pub struct RenderOptions {
    pub render_outline : bool,
    pub render_wireframe : bool,
-   pub finaize_to_stencil : bool,
+   pub finalize_to_stencil : bool,
 }
 
 pub struct RenderSystem {
     orig_render_pipeline: wgpu::RenderPipeline,
     collectible_render_pipeline: wgpu::RenderPipeline,
-    debug_render_pipeline: wgpu::RenderPipeline,
+    outline_render_pipeline: wgpu::RenderPipeline,
     // debug_bind_group_layout: wgpu::PipelineLayout,
     wireframe_render_pipeline: wgpu::RenderPipeline,
     wireframe_bind_group_layout: wgpu::BindGroupLayout,
@@ -48,6 +50,7 @@ pub struct RenderSystem {
     stencil_compute_pipeline: wgpu::ComputePipeline,
     stencil_compute_bind_group_layout: wgpu::BindGroupLayout,
     depth_stencil: texture::TextureBasic,
+    last_stencil_count: u32,
 }
 
 struct ModelBuffer {
@@ -78,7 +81,7 @@ impl RenderSystem {
         write_mask: 0xff,
     };
 
-    const OUTLINE_SCALE_FACTOR: f32 = 1.1;
+    const OUTLINE_SCALE_FACTOR: f32 = 1.2;
     const WORKGROUP_SIZE_X: u32 = 8;
     const WORKGROUP_SIZE_Y: u32 = 8;
     const AMBIENT_LIGHT_INTENSITY : f32 = 0.5;
@@ -255,7 +258,7 @@ impl RenderSystem {
             });
         let (post_popup_render_pipeline, post_popup_bind_group_layout) = Self::create_post_pipeline(context, &post_popup_shader);
 
-        let debug_render_pipeline = Self::create_debug_pipeline(
+        let outline_render_pipeline = Self::create_outline_pipeline(
             context,
             &uniform_bind_group_layout,
             &texture_bind_group_layout,
@@ -268,7 +271,7 @@ impl RenderSystem {
         Self {
             orig_render_pipeline,
             collectible_render_pipeline,
-            debug_render_pipeline,
+            outline_render_pipeline,
             // debug_bind_group_layout,
             wireframe_render_pipeline,
             wireframe_bind_group_layout,
@@ -282,6 +285,7 @@ impl RenderSystem {
             stencil_compute_pipeline,
             stencil_compute_bind_group_layout,
             depth_stencil,
+            last_stencil_count: 0,
         }
     }
 
@@ -462,8 +466,8 @@ pipeline_infos: Vec<PipelineInfo>,
     }
 
     pub fn render(
-        &self,
-        render_options: RenderOptions,
+        &mut self,
+        render_options: &mut RenderOptions,
         positions: &component::EntityMap<component::PositionComponent>,
         vertex_arrays: &component::EntityMap<component::VertexArrayComponent>,
         lights: &component::EntityMap<uniform::LightComponent>,
@@ -474,7 +478,7 @@ pipeline_infos: Vec<PipelineInfo>,
         time_elapsed: Duration,
         world_uniform: &uniform::WorldUniform,
         camera: &camera::OrthographicCamera,
-        gui_info: &gui::GuiInfo,
+        gui_info: &mut gui::GuiInfo,
         game_mode: &mut game::GameMode
     ) -> Result<(), wgpu::SurfaceError> {
 
@@ -839,26 +843,26 @@ standard_pipeline_infos
                     );
 
 
-            let debug_vertex_buffer =
+            let outline_vertex_buffer =
                 context
                     .device
                     .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                        label: Some("Wireframe Vertex Buffer"),
+                        label: Some("Outline Vertex Buffer"),
                         contents: bytemuck::cast_slice(&outline_vertices),
                         usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::STORAGE,
                     });
 
-            let debug_index_buffer =
+            let outline_index_buffer =
                 context
                     .device
                     .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                        label: Some("Wireframe Index Buffer"),
+                        label: Some("Outline Index Buffer"),
                         contents: bytemuck::cast_slice(&outline_indices),
                         usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::STORAGE,
                     });
 
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("Wireframe Render Pass"),
+                label: Some("Outline Render Pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: &surface_view,
                     resolve_target: None,
@@ -882,16 +886,16 @@ standard_pipeline_infos
                 timestamp_writes: None,
             });
 
-            render_pass.set_pipeline(&self.debug_render_pipeline);
+            render_pass.set_pipeline(&self.outline_render_pipeline);
             render_pass.set_bind_group(0, &uniform_bind_group, &[]);
             render_pass.set_bind_group(1, &self.texture_bind_group, &[]);
             render_pass.set_stencil_reference(2);
-            render_pass.set_vertex_buffer(0, debug_vertex_buffer.slice(..));
-            render_pass.set_index_buffer(debug_index_buffer.slice(..), wgpu::IndexFormat::Uint32); // 1.
+            render_pass.set_vertex_buffer(0, outline_vertex_buffer.slice(..));
+            render_pass.set_index_buffer(outline_index_buffer.slice(..), wgpu::IndexFormat::Uint32); // 1.
             render_pass.draw_indexed(0..outline_indices.len() as u32, 0, 0..1);
         }
 
-        if render_options.finaize_to_stencil {
+       let output_buffer = if render_options.finalize_to_stencil {
 
             let width = surface_tex.width();
             let height = surface_tex.height();
@@ -909,71 +913,59 @@ standard_pipeline_infos
                 });
             let buffer = self.debug_stencil(context, &mut encoder, surface_tex);
 
-            encoder.copy_buffer_to_buffer(
-                &buffer,
-                0,
-                &read_buffer,
-                0,
-                (width_div_4_256_aligned * height) as u64,
-            );
-
-            encoder.copy_texture_to_buffer(
-                wgpu::ImageCopyTexture {
-                    texture: &self.depth_stencil.texture,
-                    mip_level: 0,
-                    origin: wgpu::Origin3d::ZERO,
-                    aspect: wgpu::TextureAspect::StencilOnly,
-                },
-                wgpu::ImageCopyBuffer {
-                    buffer: &read_buffer,
-                    layout: wgpu::ImageDataLayout {
-                        offset: 0,
-                        bytes_per_row: Some(
-                            width_div_4_256_aligned * 4 * std::mem::size_of::<u8>() as u32,
-                        ),
-                        rows_per_image: Some(height),
-                    },
-                },
-                wgpu::Extent3d {
-                    width,
-                    height,
-                    depth_or_array_layers: 1,
-                },
-            );
-
-            let buffer_slice = read_buffer.slice(..);
-            let (sender, receiver) = flume::bounded(1);
-
-            buffer_slice.map_async(wgpu::MapMode::Read, move |v| sender.send(v).unwrap());
-
-            context
-                .device
-                .poll(wgpu::Maintain::wait())
-                .panic_on_timeout();
-
-            if let Ok(Ok(())) = pollster::block_on(receiver.recv_async()) {
-                // Gets contents of buffer
-                let data = buffer_slice.get_mapped_range();
-                // Since contents are got in bytes, this converts these bytes back to u32
-                let result: Vec<u8> = bytemuck::cast_slice(&data).to_vec();
-                debug!("{:?}", result.iter().skip(4800).position(|&x| x == 0));
-
-                // With the current interface, we have to make sure all mapped views are
-                // dropped before we unmap the buffer.
-                drop(data);
-            } else {
-                panic!("failed to run compute on gpu!")
+            #[cfg(not(target_arch = "wasm32"))]
+            {
+                encoder.copy_buffer_to_buffer(
+                    &buffer,
+                    0,
+                    &read_buffer,
+                    0,
+                    (width_div_4_256_aligned * height) as u64,
+                );
             }
-        }
+           Some(read_buffer)
+        } else {
+            None
+        };
 
 
-        gui.draw(&context, &mut encoder, window, &surface_view, gui_info, game_mode);
+        gui.draw(&context, &mut encoder, window, &surface_view, gui_info, render_options, game_mode, self.last_stencil_count);
 
         context.queue.submit(std::iter::once(encoder.finish()));
         output.present();
 
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            if let Some(output_buffer) = output_buffer {
+                let buffer_slice = output_buffer.slice(..);
+                let (sender, receiver) = flume::bounded(1);
+                buffer_slice.map_async(wgpu::MapMode::Read, move |v| sender.send(v).unwrap());
+            
+                context.device.poll(wgpu::Maintain::Wait);
 
+            let wait_result =  pollster::block_on(receiver.recv_async());
+                if let Ok(Ok(())) = wait_result {
+                    // Gets contents of buffer
+                    let data = buffer_slice.get_mapped_range();
+                    // Since contents are got in bytes, this converts these bytes back to u32
 
+                    let result: Vec<u8> = bytemuck::cast_slice(&data).to_vec();
+
+                    let count = result.into_iter().fold(0, |acc, x| {
+                        acc + (x  as u32 / 64)
+                    });
+
+                    self.last_stencil_count = count;
+                    // debug!("count {:?}", count);
+
+                    // With the current interface, we have to make sure all mapped views are
+                    // dropped before we unmap the buffer.
+                    drop(data);
+                } else {
+                    panic!("failed to run compute on gpu!")
+                }
+            }
+        }
 
         Ok(())
     }
@@ -987,44 +979,6 @@ standard_pipeline_infos
     ) -> wgpu::Buffer {
         let width = surface_tex.width();
         let height = surface_tex.height();
-
-        let width_div_4_256_aligned = (((width) + 255) / 256) * 256 / 4;
-        let emtpy_array_r = (0..(width_div_4_256_aligned * height))
-            .map(|_| 0 as u32)
-            .collect::<Vec<u32>>();
-        let buffer_r = context
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Intermediate Stencil Compute Buffer read"),
-                contents: bytemuck::cast_slice(&emtpy_array_r),
-                usage: wgpu::BufferUsages::COPY_SRC
-                    | wgpu::BufferUsages::COPY_DST
-                    | wgpu::BufferUsages::STORAGE,
-            });
-
-        encoder.copy_texture_to_buffer(
-            wgpu::ImageCopyTexture {
-                texture: &self.depth_stencil.texture,
-                mip_level: 0,
-                origin: wgpu::Origin3d::ZERO,
-                aspect: wgpu::TextureAspect::StencilOnly,
-            },
-            wgpu::ImageCopyBuffer {
-                buffer: &buffer_r,
-                layout: wgpu::ImageDataLayout {
-                    offset: 0,
-                    bytes_per_row: Some(
-                        width_div_4_256_aligned * 4 * std::mem::size_of::<u8>() as u32,
-                    ),
-                    rows_per_image: Some(height),
-                },
-            },
-            wgpu::Extent3d {
-                width,
-                height,
-                depth_or_array_layers: 1,
-            },
-        );
 
         let width_256_aligned = (((width * 4) + 255) / 256) * 256 / 4;
         let emtpy_array_w = (0..(width_256_aligned * height))
@@ -1040,6 +994,12 @@ standard_pipeline_infos
                     | wgpu::BufferUsages::STORAGE,
             });
 
+
+        let view = self.depth_stencil.texture.create_view(&wgpu::TextureViewDescriptor {
+            aspect: wgpu::TextureAspect::StencilOnly,
+            ..Default::default()
+        });
+
         let bind_group = context
             .device
             .create_bind_group(&wgpu::BindGroupDescriptor {
@@ -1048,9 +1008,7 @@ standard_pipeline_infos
                 entries: &[
                     wgpu::BindGroupEntry {
                         binding: 0,
-                        resource: wgpu::BindingResource::Buffer(
-                            buffer_r.as_entire_buffer_binding(),
-                        ),
+                        resource: wgpu::BindingResource::TextureView(&view)
                     },
                     wgpu::BindGroupEntry {
                         binding: 1,
@@ -1060,6 +1018,7 @@ standard_pipeline_infos
                     },
                 ],
             });
+
         {
             let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
                 label: Some("depth stencil compute pass"),
@@ -1097,7 +1056,7 @@ standard_pipeline_infos
             },
         );
 
-        buffer_r
+        buffer_w
     }
 
     fn create_stencil_compute_pipeline(
@@ -1121,11 +1080,17 @@ standard_pipeline_infos
                         wgpu::BindGroupLayoutEntry {
                             binding: 0,
                             visibility: wgpu::ShaderStages::COMPUTE,
-                            ty: wgpu::BindingType::Buffer {
-                                ty: wgpu::BufferBindingType::Storage { read_only: true },
-                                has_dynamic_offset: false,
-                                min_binding_size: None,
+                            ty: wgpu::BindingType::Texture {
+                                multisampled: false,
+                                view_dimension: wgpu::TextureViewDimension::D2,
+                                sample_type: wgpu::TextureSampleType::Uint,
                             },
+                            
+                            //  wgpu::BindingType::Buffer {
+                            //     ty: wgpu::BufferBindingType::Storage { read_only: true },
+                            //     has_dynamic_offset: false,
+                            //     min_binding_size: None,
+                            // },
                             count: None,
                         },
                         wgpu::BindGroupLayoutEntry {
@@ -1359,13 +1324,13 @@ standard_pipeline_infos
         )
     }
 
-    fn create_debug_pipeline(
+    fn create_outline_pipeline(
         context: &context::Context,
         uniform_bind_group_layout: &wgpu::BindGroupLayout,
         texture_bind_group_layout: &wgpu::BindGroupLayout,
         wgsl_preprocessor: &wgsl_preprocessor::WgslPreprocessor
     ) -> wgpu::RenderPipeline {
-        let debug_shader: wgpu::ShaderModule =
+        let outline_shader: wgpu::ShaderModule =
             context
                 .device
                 .create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -1377,7 +1342,7 @@ standard_pipeline_infos
             context
                 .device
                 .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                    label: Some("Debug Render Pipeline Layout"),
+                    label: Some("Outline Render Pipeline Layout"),
                     bind_group_layouts: &[&uniform_bind_group_layout, &texture_bind_group_layout],
                     push_constant_ranges: &[],
                 });
@@ -1390,10 +1355,10 @@ standard_pipeline_infos
         };
 
         Self::create_pipeline(
-            "Debug Render Pipeline",
+            "Outline Render Pipeline",
             &context,
             &render_pipeline_layout,
-            &debug_shader,
+            &outline_shader,
             Some(wgpu::StencilState {
                 front: stencil_face_state,
                 back: stencil_face_state,

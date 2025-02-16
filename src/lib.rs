@@ -72,7 +72,7 @@ impl App {
         let ticks_elapsed = Duration::new(0, 0);
 
         let render_options = RenderOptions {
-            finaize_to_stencil: false,
+            finalize_to_stencil: false,
             render_outline: false,
             render_wireframe: false,
         };
@@ -122,27 +122,27 @@ impl ApplicationHandler<UserEvent> for App {
                 .and_then(|doc| {
                     let dst = doc.get_element_by_id("wasm-game")?;
                     let canvas = window.canvas()?;
-                    let resize_callback = Closure::<dyn Fn()>::new({
-                        let canvas = canvas.clone();
-                        let target = dst.clone();
-                        let window = window.clone();
-                        move || {
-                            let max_width = target.client_width();
-                            let max_height = target.client_height();
+                    // let resize_callback = Closure::<dyn Fn()>::new({
+                    //     let canvas = canvas.clone();
+                    //     let target = dst.clone();
+                    //     let window = window.clone();
+                    //     move || {
+                    //         let max_width = target.client_width();
+                    //         let max_height = target.client_height();
 
-                            canvas.set_height(max_height as u32);
-                            canvas.set_width(max_width as u32);
-                            window.request_inner_size(PhysicalSize::new(max_width, max_height));
-                            // let _ = force_resize_event_tx.send(real_size);
-                        }
-                    });
-                    let resize_observer =
-                        web_sys::ResizeObserver::new(resize_callback.as_ref().unchecked_ref())
-                            .unwrap();
-                    resize_observer.observe(&dst);
+                    //         canvas.set_height(max_height as u32);
+                    //         canvas.set_width(max_width as u32);
+                    //         window.request_inner_size(PhysicalSize::new(max_width, max_height));
+                    //         // let _ = force_resize_event_tx.send(real_size);
+                    //     }
+                    // });
+                    // let resize_observer =
+                    //     web_sys::ResizeObserver::new(resize_callback.as_ref().unchecked_ref())
+                    //         .unwrap();
+                    // resize_observer.observe(&dst);
                     dst.append_child(&Element::from(canvas)).ok()?;
-                    self.resources.push(Box::new(resize_observer));
-                    self.resources.push(Box::new(resize_callback));
+                    // self.resources.push(Box::new(resize_observer));
+                    // self.resources.push(Box::new(resize_callback));
                     Some(())
                 })
                 .expect("Couldn't append canvas to document body.");
@@ -269,11 +269,13 @@ impl ApplicationHandler<UserEvent> for App {
             if window_id == state.window.id() {
                 match event {
                     WindowEvent::CloseRequested => event_loop.exit(),
-                    WindowEvent::Resized(physical_size) => state.resize(physical_size),
-
+                    WindowEvent::Resized(physical_size) => {
+                        debug!("resizing to {:?}", physical_size);
+                        state.resize(physical_size)
+                    }
                     WindowEvent::RedrawRequested => {
                         let render_result = state.render_system.render(
-                            self.render_options,
+                            &mut self.render_options,
                             &state.position_components,
                             &state.vertex_array_components,
                             &state.light_components,
@@ -284,7 +286,7 @@ impl ApplicationHandler<UserEvent> for App {
                             current_time,
                             &state.world_uniform,
                             &state.camera,
-                            &state.gui_info,
+                            &mut state.gui_info,
                             &mut state.game_mode,
                         );
                         match render_result {

@@ -14,8 +14,9 @@ use egui_wgpu::wgpu;
 use egui_wgpu::wgpu::{CommandEncoder, Device, TextureFormat, TextureView};
 use egui_winit::winit::window::Window;
 use egui_winit::State;
+use log::debug;
 
-use crate::{context, game};
+use crate::{context, game, render_system};
 
 #[derive(Clone, Copy)]
 pub enum PopupType {
@@ -135,8 +136,10 @@ impl Gui {
         encoder: &mut CommandEncoder,
         window: Arc<Window>,
         window_surface_view: &TextureView,
-        info: &GuiInfo,
+        info: &mut GuiInfo,
+        render_options: &mut render_system::RenderOptions,
         game_mode: &mut game::GameMode, // mut run_ui: impl FnMut(&Context),
+        last_stencil_count: u32,
     ) {
         let screen_descriptor = ScreenDescriptor {
             size_in_pixels: [context.config.width, context.config.height],
@@ -153,7 +156,10 @@ impl Gui {
             //     .show(&ctx, |mut ui| ui.label("Halex"));
 
             let scrolll = egui::Image::new((self.scroll_image.id(), self.scroll_image.size_vec2()))
-                .fit_to_exact_size(Vec2 { x: 64., y: 64. })
+                .fit_to_exact_size(Vec2 {
+                    x: rect.y * 0.2,
+                    y: rect.y * 0.2,
+                })
                 .maintain_aspect_ratio(true);
 
             match *game_mode {
@@ -306,28 +312,46 @@ impl Gui {
                             ui.horizontal(|ui| {
                                 ui.add(scrolll);
 
-                                ui.label(
-                                    RichText::new(format!("{}", info.notes_collected))
-                                        .font(FontId::proportional(40.0)),
-                                )
+                                if rect.y <= window.inner_size().height as f32 {
+                                    ui.label(
+                                        RichText::new(format!("{}", info.notes_collected))
+                                            .font(FontId::proportional(rect.y * 0.15)),
+                                    )
+                                } else {
+                                    ui.response()
+                                }
                             })
                         });
                 }
             }
 
-            // egui::Window::new("statistics")
-            //     // .vscroll(true)
-            //     .default_open(true)
-            //     .max_width(1000.0)
-            //     .max_height(800.0)
-            //     .default_width(800.0)
-            //     .resizable(true)
-            //     .anchor(Align2::LEFT_TOP, [0.0, 0.0])
-            //     .show(&ctx, |mut ui| {
-            //         ui.label(format!("FPS: {}", info.fps));
-            //         ui.end_row();
+            egui::Window::new("debug")
+                // .vscroll(true)
+                .default_open(true)
+                .max_width(1000.0)
+                .max_height(800.0)
+                .default_width(800.0)
+                .resizable(true)
+                .anchor(Align2::LEFT_TOP, [0.0, 0.0])
+                .show(&ctx, |mut ui| {
+                    ui.label(format!("FPS: {}", info.fps));
+                    ui.end_row();
 
-            //     });
+                    ui.vertical(|ui| {
+                        ui.checkbox(&mut render_options.finalize_to_stencil, "stencil view");
+                        ui.checkbox(&mut render_options.render_outline, "outline");
+                        ui.checkbox(&mut render_options.render_wireframe, "wireframe");
+                    });
+
+                    #[cfg(not(target_arch = "wasm32"))]
+                    {
+                        if render_options.finalize_to_stencil {
+                            ui.label(format!("stencil activated count: {}", last_stencil_count));
+                            ui.end_row();
+                        }
+                    }
+                    // ui.selectable_value(&mut selected, Enum::Third, "Third");
+                });
         });
 
         self.state

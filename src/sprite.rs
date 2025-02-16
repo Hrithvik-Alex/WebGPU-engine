@@ -176,7 +176,6 @@ impl SpriteSheet {
 
         let dimensions = texture.dimensions;
 
-        debug!("{:?}", dimensions);
         Self {
             sprite_width,
             sprite_height,
@@ -222,10 +221,6 @@ impl SpriteSheet {
         let sheet_x = sheet_position.x as f32 * step_x;
         let sheet_y = sheet_position.y as f32 * step_y;
 
-        // debug!(
-        //     "{:?} {:?} {:?} {:?} {:?}",
-        //     sheet_x, sheet_y, sheet_position, step_x, step_y
-        // );
         vertex_array.tex_coords = vertex_array
             .whole_tex_coords
             .iter()
@@ -236,8 +231,5 @@ impl SpriteSheet {
                 )
             })
             .collect();
-
-        // debug!("{:?}", vertex_array.tex_coords);
-        // debug!("{:?}", sheet_position);
     }
 }

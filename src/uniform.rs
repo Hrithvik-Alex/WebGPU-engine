@@ -1,5 +1,4 @@
 use cgmath::SquareMatrix;
-use log::debug;
 use wgpu::util::DeviceExt;
 
 use crate::component::Component;
