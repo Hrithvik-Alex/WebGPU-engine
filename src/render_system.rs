@@ -31,6 +31,7 @@ pub struct RenderOptions {
    pub render_outline : bool,
    pub render_wireframe : bool,
    pub finalize_to_stencil : bool,
+   pub render_lights: bool,
 }
 
 pub struct RenderSystem {
@@ -428,6 +429,7 @@ impl RenderSystem {
 
     fn get_vertex_and_lighting_data(
 pipeline_infos: Vec<PipelineInfo>,
+render_options: &RenderOptions,
     ) -> (ModelBuffer, Vec<LightUniform>, usize) {
         let (vertices, indices, light_uniforms, len) = 
         
@@ -442,21 +444,24 @@ pipeline_infos: Vec<PipelineInfo>,
                     vertices.extend(entity_vertices);
                     indices.extend(entity_indices);
 
-                    if let Some(light) = light {
-                        light_uniforms.push(uniform::LightUniform {
-                            position: cgmath::Vector3::new(
-                                pos.position.x,
-                                pos.position.y,
-                                v_arr.z_value,
-                            )
-                            .into(),
-                            color: light.color.into(),
-                            linear_dropoff: light.linear_dropoff,
-                            quadratic_dropoff: light.quadratic_dropoff,
-                            ambient_strength: light.ambient_strength,
-                            diffuse_strength: light.diffuse_strength,
-                            padding: [0.0, 0.0],
-                        });
+                    if let Some(light) = light{
+                        if render_options.render_lights {
+                            light_uniforms.push(uniform::LightUniform {
+                                position: cgmath::Vector3::new(
+                                    pos.position.x,
+                                    pos.position.y,
+                                    v_arr.z_value,
+                                )
+                                .into(),
+                                color: light.color.into(),
+                                linear_dropoff: light.linear_dropoff,
+                                quadratic_dropoff: light.quadratic_dropoff,
+                                ambient_strength: light.ambient_strength,
+                                diffuse_strength: light.diffuse_strength,
+                                padding: [0.0, 0.0],
+                            });
+                        }
+                        
                     }
 
                     (vertices, indices, light_uniforms, i + 1)
@@ -554,12 +559,14 @@ pipeline_infos: Vec<PipelineInfo>,
         });
 
         let (standard_model_buffer, standard_light_uniforms, _) = Self::get_vertex_and_lighting_data(
-standard_pipeline_infos
+            standard_pipeline_infos,
+            render_options
         );
 
         let (collectible_model_buffer, collectible_light_uniforms, _) = Self::get_vertex_and_lighting_data(
-            collectible_pipeline_infos
-                    );
+            collectible_pipeline_infos,
+            &render_options
+        );
 
 
         let standard_num_indices = standard_model_buffer.indices.len();
@@ -585,7 +592,7 @@ standard_pipeline_infos
                 .device
                 .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                     label: Some("Light Uniforms Buffer"),
-                    contents: bytemuck::cast_slice(&[standard_light_uniforms.as_slice(), collectible_light_uniforms.as_slice()].concat()),
+                    contents: bytemuck::cast_slice(&[standard_light_uniforms.as_slice(), collectible_light_uniforms.as_slice(), &[LightUniform::default()]].concat()),
                     usage: wgpu::BufferUsages::STORAGE,
                 });
 
@@ -594,7 +601,7 @@ standard_pipeline_infos
                 .device
                 .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                     label: Some("Light Len Buffer"),
-                    contents: bytemuck::cast_slice(&[standard_light_uniforms.len() + collectible_light_uniforms.len()]),
+                    contents: bytemuck::cast_slice(&[standard_light_uniforms.len() + collectible_light_uniforms.len() + 1]),
                     usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
                 });
         

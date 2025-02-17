@@ -328,26 +328,58 @@ impl Gui {
             egui::Window::new("debug")
                 // .vscroll(true)
                 .default_open(true)
-                .max_width(1000.0)
-                .max_height(800.0)
-                .default_width(800.0)
+                // .max_width(1000.0)
+                // .max_height(800.0)
+                // .default_width(400.0)
                 .resizable(true)
                 .anchor(Align2::LEFT_TOP, [0.0, 0.0])
                 .show(&ctx, |mut ui| {
-                    ui.label(format!("FPS: {}", info.fps));
-                    ui.end_row();
+                    if rect.y <= window.inner_size().height as f32 {
+                        let font_size = FontId::proportional(rect.y * 0.06);
+                        ui.label(
+                            RichText::new(format!("FPS: {}", info.fps)).font(font_size.clone()),
+                        );
+                        ui.end_row();
 
-                    ui.vertical(|ui| {
-                        ui.checkbox(&mut render_options.finalize_to_stencil, "stencil view");
-                        ui.checkbox(&mut render_options.render_outline, "outline");
-                        ui.checkbox(&mut render_options.render_wireframe, "wireframe");
-                    });
+                        let checkbox_size = rect.y * 0.03; // Adjust multiplier as needed
+                        ui.style_mut().spacing.interact_size = Vec2::splat(checkbox_size);
+                        ui.style_mut().visuals.widgets.active.rounding = Rounding::ZERO;
+                        ui.style_mut().visuals.widgets.inactive.rounding = Rounding::ZERO;
+                        ui.style_mut().visuals.widgets.active.expansion = 0.0;
+                        ui.style_mut().visuals.widgets.inactive.expansion = 0.0;
+                        ui.style_mut().visuals.selection.stroke.width = checkbox_size * 0.1;
 
-                    #[cfg(not(target_arch = "wasm32"))]
-                    {
-                        if render_options.finalize_to_stencil {
-                            ui.label(format!("stencil activated count: {}", last_stencil_count));
-                            ui.end_row();
+                        ui.vertical(|ui| {
+                            ui.checkbox(
+                                &mut render_options.finalize_to_stencil,
+                                RichText::new("stencil view").font(font_size.clone()),
+                            );
+                            ui.checkbox(
+                                &mut render_options.render_outline,
+                                RichText::new("outline").font(font_size.clone()),
+                            );
+                            ui.checkbox(
+                                &mut render_options.render_wireframe,
+                                RichText::new("wireframe").font(font_size.clone()),
+                            );
+                            ui.checkbox(
+                                &mut render_options.render_lights,
+                                RichText::new("lights").font(font_size.clone()),
+                            );
+                        });
+
+                        #[cfg(not(target_arch = "wasm32"))]
+                        {
+                            if render_options.finalize_to_stencil {
+                                ui.label(
+                                    RichText::new(format!(
+                                        "stencil activated count: {}",
+                                        last_stencil_count
+                                    ))
+                                    .font(font_size.clone()),
+                                );
+                                ui.end_row();
+                            }
                         }
                     }
                     // ui.selectable_value(&mut selected, Enum::Third, "Third");

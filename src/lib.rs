@@ -75,6 +75,7 @@ impl App {
             finalize_to_stencil: false,
             render_outline: false,
             render_wireframe: false,
+            render_lights: false,
         };
         Self {
             render_options,
@@ -122,27 +123,37 @@ impl ApplicationHandler<UserEvent> for App {
                 .and_then(|doc| {
                     let dst = doc.get_element_by_id("wasm-game")?;
                     let canvas = window.canvas()?;
-                    // let resize_callback = Closure::<dyn Fn()>::new({
-                    //     let canvas = canvas.clone();
-                    //     let target = dst.clone();
-                    //     let window = window.clone();
-                    //     move || {
-                    //         let max_width = target.client_width();
-                    //         let max_height = target.client_height();
+                    let resize_callback = Closure::<dyn Fn()>::new({
+                        let canvas = canvas.clone();
+                        let target = dst.clone();
+                        let window = window.clone();
+                        move || {
+                            let max_width = target.client_width();
+                            // let max_height = target.client_height();
 
-                    //         canvas.set_height(max_height as u32);
-                    //         canvas.set_width(max_width as u32);
-                    //         window.request_inner_size(PhysicalSize::new(max_width, max_height));
-                    //         // let _ = force_resize_event_tx.send(real_size);
-                    //     }
-                    // });
-                    // let resize_observer =
-                    //     web_sys::ResizeObserver::new(resize_callback.as_ref().unchecked_ref())
-                    //         .unwrap();
-                    // resize_observer.observe(&dst);
+                            let snapped_width = (max_width / 256) * 256;
+
+                            // Maintain aspect ratio
+                            // let aspect_ratio = max_height as f32 / max_width as f32;
+                            let snapped_height = (snapped_width as f32 * 0.75) as i32;
+
+                            canvas.set_height(snapped_height as u32);
+                            canvas.set_width(snapped_width as u32);
+                            // window.request_inner_size(PhysicalSize::new(max_width, max_height));
+                            // let _ = force_resize_event_tx.send(real_size);o
+                            let _ = window.request_inner_size(PhysicalSize::new(
+                                snapped_width as u32,
+                                snapped_height as u32,
+                            ));
+                        }
+                    });
+                    let resize_observer =
+                        web_sys::ResizeObserver::new(resize_callback.as_ref().unchecked_ref())
+                            .unwrap();
+                    resize_observer.observe(&dst);
                     dst.append_child(&Element::from(canvas)).ok()?;
-                    // self.resources.push(Box::new(resize_observer));
-                    // self.resources.push(Box::new(resize_callback));
+                    self.resources.push(Box::new(resize_observer));
+                    self.resources.push(Box::new(resize_callback));
                     Some(())
                 })
                 .expect("Couldn't append canvas to document body.");
@@ -157,7 +168,7 @@ impl ApplicationHandler<UserEvent> for App {
             // let size = logical.to_physical(factor);
 
             let state = async move {
-                let _ = window.request_inner_size(PhysicalSize::new(768, 500));
+                let _ = window.request_inner_size(PhysicalSize::new(1024, 768));
                 TimeoutFuture::new(500).await;
                 let state = state_future.await;
                 assert!(event_loop_proxy

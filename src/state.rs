@@ -642,7 +642,7 @@ impl<'a> State<'a> {
         #[allow(unused)]
         let light = {
             let position_component = component::PositionComponent {
-                position: cgmath::Vector2::new(100., -500.),
+                position: cgmath::Vector2::new(100., 200.),
                 scale: cgmath::Vector2::new(30., 30.),
             };
 
@@ -681,45 +681,46 @@ impl<'a> State<'a> {
             )
         };
 
-        // let light2 = {
-        //     let position_component = component::PositionComponent {
-        //         position: cgmath::Vector2::new(500., 200.),
-        //         scale: cgmath::Vector2::new(30., 30.),
-        //     };
+        #[allow(unused)]
+        let light2 = {
+            let position_component = component::PositionComponent {
+                position: cgmath::Vector2::new(500., 200.),
+                scale: cgmath::Vector2::new(30., 30.),
+            };
 
-        //     let vertex_array_component: component::VertexArrayComponent =
-        //         component::VertexArrayComponent::circle(
-        //             component::VertexArrayComponent::FOREGROUND_Z,
-        //         );
+            let vertex_array_component: component::VertexArrayComponent =
+                component::VertexArrayComponent::circle(
+                    component::VertexArrayComponent::FOREGROUND_Z,
+                );
 
-        //     let light_component = uniform::LightComponent {
-        //         linear_dropoff: 0.0007,
-        //         quadratic_dropoff: 0.0001,
-        //         ambient_strength: 10.,
-        //         diffuse_strength: 15.,
-        //         color: cgmath::Vector3 {
-        //             x: 1.0,
-        //             y: 1.0,
-        //             z: 0.0,
-        //         },
-        //     };
-        //     let metadata_component = component::MetadataComponent::new(false, false);
+            let light_component = uniform::LightComponent {
+                linear_dropoff: 0.0007,
+                quadratic_dropoff: 0.0001,
+                ambient_strength: 10.,
+                diffuse_strength: 15.,
+                color: cgmath::Vector3 {
+                    x: 1.0,
+                    y: 1.0,
+                    z: 0.0,
+                },
+            };
+            let metadata_component = component::MetadataComponent::new(false, false);
 
-        //     self.add_entity(
-        //         Some(position_component),
-        //         Some(vertex_array_component),
-        //         None,
-        //         None,
-        //         None,
-        //         None,
-        //         Some(light_component),
-        //         Some(metadata_component),
-        //         None,
-        //         None,
-        //         None,
-        //         None,
-        //     )
-        // };
+            self.add_entity(
+                Some(position_component),
+                Some(vertex_array_component),
+                None,
+                None,
+                None,
+                None,
+                Some(light_component),
+                Some(metadata_component),
+                None,
+                None,
+                None,
+                None,
+            )
+        };
 
         // entity for player
         let character = {
